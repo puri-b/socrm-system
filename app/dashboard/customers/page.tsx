@@ -9,13 +9,12 @@ export default function CustomersPage() {
   const [filteredCustomers, setFilteredCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
   const [showContactModal, setShowContactModal] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [contactHistory, setContactHistory] = useState<any[]>([]);
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [services, setServices] = useState<any[]>([]);
-  const [users, setUsers] = useState<any[]>([]);
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
@@ -91,6 +90,11 @@ export default function CustomersPage() {
     XLSX.writeFile(wb, `Customers_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
+  const viewCustomerDetail = (customer: any) => {
+    setSelectedCustomer(customer);
+    setShowDetailModal(true);
+  };
+
   const viewContactHistory = async (customer: any) => {
     setSelectedCustomer(customer);
     try {
@@ -109,9 +113,18 @@ export default function CustomersPage() {
       'Potential': 'bg-yellow-100 text-yellow-800',
       'Prospect': 'bg-orange-100 text-orange-800',
       'Pipeline': 'bg-purple-100 text-purple-800',
-      'PO': 'bg-green-100 text-green-800'
+      'PO': 'bg-green-100 text-green-800',
+      'Close': 'bg-red-100 text-red-800'
     };
     return colors[status] || 'bg-gray-100 text-gray-800';
+  };
+
+  const formatCurrency = (value: any) => {
+    if (!value) return '-';
+    return new Intl.NumberFormat('th-TH', {
+      style: 'decimal',
+      minimumFractionDigits: 0
+    }).format(value);
   };
 
   if (loading) {
@@ -128,14 +141,14 @@ export default function CustomersPage() {
         <div className="flex space-x-3">
           <button
             onClick={exportToExcel}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center space-x-2"
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center space-x-2 transition-colors"
           >
             <span>📊</span>
             <span>Export Excel</span>
           </button>
           <button
             onClick={() => setShowAddModal(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2 transition-colors"
           >
             <span>➕</span>
             <span>เพิ่มลูกค้าใหม่</span>
@@ -172,6 +185,7 @@ export default function CustomersPage() {
               <option value="Prospect">Prospect</option>
               <option value="Pipeline">Pipeline</option>
               <option value="PO">PO</option>
+              <option value="Close">Close (ปิดการขาย)</option>
             </select>
           </div>
         </div>
@@ -195,6 +209,9 @@ export default function CustomersPage() {
                   สถานะ
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  มูลค่าสัญญา
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   Sale
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
@@ -205,7 +222,7 @@ export default function CustomersPage() {
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredCustomers.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
                     ไม่พบข้อมูลลูกค้า
                   </td>
                 </tr>
@@ -213,10 +230,15 @@ export default function CustomersPage() {
                 filteredCustomers.map((customer) => (
                   <tr key={customer.customer_id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
-                      <div className="font-medium text-gray-900">
-                        {customer.company_name}
-                      </div>
-                      <div className="text-sm text-gray-500">{customer.email}</div>
+                      <button
+                        onClick={() => viewCustomerDetail(customer)}
+                        className="text-left hover:text-blue-600 transition-colors"
+                      >
+                        <div className="font-medium text-gray-900 hover:underline">
+                          {customer.company_name}
+                        </div>
+                        <div className="text-sm text-gray-500">{customer.email}</div>
+                      </button>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-900">
                       {customer.contact_person || '-'}
@@ -228,6 +250,9 @@ export default function CustomersPage() {
                       <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(customer.lead_status)}`}>
                         {customer.lead_status}
                       </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-900">
+                      {customer.contract_value ? `฿ ${formatCurrency(customer.contract_value)}` : '-'}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-900">
                       {customer.sales_person_name || '-'}
@@ -260,6 +285,18 @@ export default function CustomersPage() {
         />
       )}
 
+      {showDetailModal && selectedCustomer && (
+        <CustomerDetailModal
+          customer={selectedCustomer}
+          onClose={() => {
+            setShowDetailModal(false);
+            setSelectedCustomer(null);
+          }}
+          formatCurrency={formatCurrency}
+          getStatusColor={getStatusColor}
+        />
+      )}
+
       {showContactModal && selectedCustomer && (
         <ContactHistoryModal
           customer={selectedCustomer}
@@ -277,7 +314,196 @@ export default function CustomersPage() {
     </div>
   );
 }
+// Customer Detail Modal - แสดงข้อมูลลูกค้าทั้งหมด
+function CustomerDetailModal({ customer, onClose, formatCurrency, getStatusColor }: any) {
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 bg-white border-b p-6 flex justify-between items-center">
+          <div>
+            <h3 className="text-2xl font-bold text-gray-900">{customer.company_name}</h3>
+            <span className={`inline-block mt-2 px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(customer.lead_status)}`}>
+              {customer.lead_status}
+            </span>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-3xl">
+            ×
+          </button>
+        </div>
 
+        <div className="p-6 space-y-6">
+          {/* ข้อมูลติดต่อ */}
+          <div className="bg-blue-50 rounded-lg p-4">
+            <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
+              <span className="text-xl mr-2">📞</span>
+              ข้อมูลติดต่อ
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-gray-600">อีเมล</p>
+                <p className="font-medium text-gray-900">{customer.email || '-'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">เบอร์โทรศัพท์</p>
+                <p className="font-medium text-gray-900">{customer.phone || '-'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">ผู้ติดต่อ</p>
+                <p className="font-medium text-gray-900">{customer.contact_person || '-'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">ที่ตั้ง</p>
+                <p className="font-medium text-gray-900">{customer.location || '-'}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* ข้อมูลธุรกิจ */}
+          <div className="bg-green-50 rounded-lg p-4">
+            <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
+              <span className="text-xl mr-2">🏢</span>
+              ข้อมูลธุรกิจ
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-gray-600">ประเภทธุรกิจ</p>
+                <p className="font-medium text-gray-900">{customer.business_type || '-'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">ข้อมูลการจดทะเบียน</p>
+                <p className="font-medium text-gray-900">{customer.registration_info || '-'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">งบประมาณ</p>
+                <p className="font-medium text-gray-900">
+                  {customer.budget ? `฿ ${formatCurrency(customer.budget)}` : '-'}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">แหล่งที่มา Lead</p>
+                <p className="font-medium text-gray-900">{customer.lead_source || '-'}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* ข้อมูลการขาย */}
+          <div className="bg-purple-50 rounded-lg p-4">
+            <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
+              <span className="text-xl mr-2">💰</span>
+              ข้อมูลการขาย
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-gray-600">สถานะ</p>
+                <p className="font-medium text-gray-900">{customer.lead_status}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">มูลค่าสัญญา</p>
+                <p className="font-medium text-green-600 text-lg">
+                  {customer.contract_value ? `฿ ${formatCurrency(customer.contract_value)}` : '-'}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Sale ผู้ดูแล</p>
+                <p className="font-medium text-gray-900">{customer.sales_person_name || '-'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Quality Lead</p>
+                <p className="font-medium text-gray-900">
+                  {customer.is_quality_lead ? '✅ ใช่' : '❌ ไม่ใช่'}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Keyword ค้นหา</p>
+                <p className="font-medium text-gray-900">{customer.search_keyword || '-'}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">บริการที่สนใจ</p>
+                <p className="font-medium text-gray-900">{customer.service_interested || '-'}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* ข้อมูลสัญญา */}
+          {customer.contract_start_date && (
+            <div className="bg-yellow-50 rounded-lg p-4">
+              <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
+                <span className="text-xl mr-2">📄</span>
+                ข้อมูลสัญญา
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-gray-600">ระยะเวลาสัญญา</p>
+                  <p className="font-medium text-gray-900">{customer.contract_duration || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">วันเริ่มสัญญา</p>
+                  <p className="font-medium text-gray-900">
+                    {customer.contract_start_date ? new Date(customer.contract_start_date).toLocaleDateString('th-TH') : '-'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">วันสิ้นสุดสัญญา</p>
+                  <p className="font-medium text-gray-900">
+                    {customer.contract_end_date ? new Date(customer.contract_end_date).toLocaleDateString('th-TH') : '-'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Pain Points */}
+          {customer.pain_points && (
+            <div className="bg-red-50 rounded-lg p-4">
+              <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
+                <span className="text-xl mr-2">🎯</span>
+                Pain Points และปัญหาที่ต้องการแก้ไข
+              </h4>
+              <p className="text-gray-700 whitespace-pre-wrap">{customer.pain_points}</p>
+            </div>
+          )}
+
+          {/* ข้อมูลระบบ */}
+          <div className="bg-gray-50 rounded-lg p-4">
+            <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
+              <span className="text-xl mr-2">ℹ️</span>
+              ข้อมูลระบบ
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-gray-600">แผนก</p>
+                <p className="font-medium text-gray-900">{customer.department}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">วันที่สร้าง</p>
+                <p className="font-medium text-gray-900">
+                  {new Date(customer.created_at).toLocaleDateString('th-TH', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="sticky bottom-0 bg-gray-50 border-t px-6 py-4 flex justify-end">
+          <button
+            onClick={onClose}
+            className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+          >
+            ปิด
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Add Customer Modal
 function AddCustomerModal({ user, onClose, onSuccess }: any) {
   const [services, setServices] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
@@ -539,6 +765,7 @@ function AddCustomerModal({ user, onClose, onSuccess }: any) {
                   <option value="Prospect">Prospect</option>
                   <option value="Pipeline">Pipeline</option>
                   <option value="PO">PO</option>
+                  <option value="Close">Close (ปิดการขาย)</option>
                 </select>
               </div>
 
@@ -629,6 +856,7 @@ function AddCustomerModal({ user, onClose, onSuccess }: any) {
   );
 }
 
+// Contact History Modal  
 function ContactHistoryModal({ customer, contacts, onClose, onAddContact }: any) {
   const [showAddForm, setShowAddForm] = useState(false);
 
@@ -667,7 +895,7 @@ function ContactHistoryModal({ customer, contacts, onClose, onAddContact }: any)
               <p className="text-gray-500 text-center py-8">ยังไม่มีประวัติการติดต่อ</p>
             ) : (
               contacts.map((contact: any) => (
-                <div key={contact.contact_id} className="border rounded-lg p-4">
+                <div key={contact.contact_id} className="border rounded-lg p-4 hover:bg-gray-50">
                   <div className="flex justify-between items-start mb-2">
                     <div>
                       <span className="font-medium">{contact.contact_subject}</span>
