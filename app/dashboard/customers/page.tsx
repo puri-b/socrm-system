@@ -1,32 +1,66 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import AddContactForm from '@/components/AddContactForm';
 
 export default function CustomersPage() {
   const [user, setUser] = useState<any>(null);
   const [customers, setCustomers] = useState<any[]>([]);
   const [filteredCustomers, setFilteredCustomers] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [showContactModal, setShowContactModal] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [contactHistory, setContactHistory] = useState<any[]>([]);
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [leadSourceFilter, setLeadSourceFilter] = useState('all');
+  const [salesPersonFilter, setSalesPersonFilter] = useState('all');
+  const [qualityLeadFilter, setQualityLeadFilter] = useState('all');
+  const [departmentFilter, setDepartmentFilter] = useState('all');
+
+  const LEAD_SOURCES = [
+    'Offline - Callout',
+    'Offline - Connection',
+    'Online - Call in',
+    'Online - Line',
+    'Online - E-mail',
+    'Online - อื่นๆ'
+  ];
+
+  const DEPARTMENTS = [
+    { code: 'LBD', name: 'LBD' },
+    { code: 'LBA', name: 'LBA' },
+    { code: 'CR', name: 'CR' },
+    { code: 'LM', name: 'LM' },
+    { code: 'DS', name: 'DS' },
+    { code: 'SN', name: 'SN' }
+  ];
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
     if (userData) {
       setUser(JSON.parse(userData));
       fetchCustomers();
+      fetchUsers();
     }
   }, []);
 
   useEffect(() => {
     filterCustomers();
-  }, [customers, statusFilter, searchTerm]);
+  }, [customers, statusFilter, searchTerm, leadSourceFilter, salesPersonFilter, qualityLeadFilter, departmentFilter]);
+
+  const fetchUsers = async () => {
+    try {
+      const response = await fetch('/api/users');
+      const data = await response.json();
+      setUsers(data.users || []);
+    } catch (error) {
+      console.error('Failed to fetch users:', error);
+    }
+  };
 
   const fetchCustomers = async () => {
     try {
@@ -45,6 +79,23 @@ export default function CustomersPage() {
 
     if (statusFilter !== 'all') {
       filtered = filtered.filter(c => c.lead_status === statusFilter);
+    }
+
+    if (leadSourceFilter !== 'all') {
+      filtered = filtered.filter(c => c.lead_source === leadSourceFilter);
+    }
+
+    if (salesPersonFilter !== 'all') {
+      filtered = filtered.filter(c => c.sales_person_id === parseInt(salesPersonFilter));
+    }
+
+    if (qualityLeadFilter !== 'all') {
+      const isQuality = qualityLeadFilter === 'quality';
+      filtered = filtered.filter(c => c.is_quality_lead === isQuality);
+    }
+
+    if (departmentFilter !== 'all') {
+      filtered = filtered.filter(c => c.department === departmentFilter);
     }
 
     if (searchTerm) {
@@ -93,6 +144,12 @@ export default function CustomersPage() {
   const viewCustomerDetail = (customer: any) => {
     setSelectedCustomer(customer);
     setShowDetailModal(true);
+  };
+
+  const editCustomer = (customer: any) => {
+    setSelectedCustomer(customer);
+    setShowDetailModal(false);
+    setShowEditModal(true);
   };
 
   const viewContactHistory = async (customer: any) => {
@@ -157,7 +214,7 @@ export default function CustomersPage() {
       </div>
 
       <div className="bg-white rounded-lg shadow p-4 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               ค้นหา
@@ -170,6 +227,7 @@ export default function CustomersPage() {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
             />
           </div>
+          
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               สถานะ
@@ -187,6 +245,87 @@ export default function CustomersPage() {
               <option value="PO">PO</option>
               <option value="Close">Close (ปิดการขาย)</option>
             </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              แหล่งที่มา
+            </label>
+            <select
+              value={leadSourceFilter}
+              onChange={(e) => setLeadSourceFilter(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">ทั้งหมด</option>
+              {LEAD_SOURCES.map(source => (
+                <option key={source} value={source}>{source}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Sale ผู้ดูแล
+            </label>
+            <select
+              value={salesPersonFilter}
+              onChange={(e) => setSalesPersonFilter(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">ทั้งหมด</option>
+              {users.map(u => (
+                <option key={u.user_id} value={u.user_id}>{u.full_name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Quality Lead
+            </label>
+            <select
+              value={qualityLeadFilter}
+              onChange={(e) => setQualityLeadFilter(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">ทั้งหมด</option>
+              <option value="quality">Lead คุณภาพ</option>
+              <option value="not-quality">Lead ไม่คุณภาพ</option>
+            </select>
+          </div>
+
+          {user?.role === 'admin' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                แผนก
+              </label>
+              <select
+                value={departmentFilter}
+                onChange={(e) => setDepartmentFilter(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">ทั้งหมด</option>
+                {DEPARTMENTS.map(dept => (
+                  <option key={dept.code} value={dept.code}>{dept.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div className="flex items-end">
+            <button
+              onClick={() => {
+                setStatusFilter('all');
+                setLeadSourceFilter('all');
+                setSalesPersonFilter('all');
+                setQualityLeadFilter('all');
+                setDepartmentFilter('all');
+                setSearchTerm('');
+              }}
+              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors w-full"
+            >
+              ล้างตัวกรอง
+            </button>
           </div>
         </div>
       </div>
@@ -206,6 +345,9 @@ export default function CustomersPage() {
                   เบอร์โทร
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  แหล่งที่มา
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                   สถานะ
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
@@ -222,7 +364,7 @@ export default function CustomersPage() {
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredCustomers.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
                     ไม่พบข้อมูลลูกค้า
                   </td>
                 </tr>
@@ -245,6 +387,9 @@ export default function CustomersPage() {
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-900">
                       {customer.phone || '-'}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-900">
+                      {customer.lead_source || '-'}
                     </td>
                     <td className="px-6 py-4">
                       <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(customer.lead_status)}`}>
@@ -277,6 +422,8 @@ export default function CustomersPage() {
       {showAddModal && (
         <AddCustomerModal
           user={user}
+          users={users}
+          leadSources={LEAD_SOURCES}
           onClose={() => setShowAddModal(false)}
           onSuccess={() => {
             setShowAddModal(false);
@@ -292,8 +439,26 @@ export default function CustomersPage() {
             setShowDetailModal(false);
             setSelectedCustomer(null);
           }}
+          onEdit={() => editCustomer(selectedCustomer)}
           formatCurrency={formatCurrency}
           getStatusColor={getStatusColor}
+        />
+      )}
+
+      {showEditModal && selectedCustomer && (
+        <EditCustomerModal
+          customer={selectedCustomer}
+          users={users}
+          leadSources={LEAD_SOURCES}
+          onClose={() => {
+            setShowEditModal(false);
+            setSelectedCustomer(null);
+          }}
+          onSuccess={() => {
+            setShowEditModal(false);
+            setSelectedCustomer(null);
+            fetchCustomers();
+          }}
         />
       )}
 
@@ -314,14 +479,16 @@ export default function CustomersPage() {
     </div>
   );
 }
-// Customer Detail Modal - แสดงข้อมูลลูกค้าทั้งหมด
-function CustomerDetailModal({ customer, onClose, formatCurrency, getStatusColor }: any) {
+
+function CustomerDetailModal({ customer, onClose, onEdit, formatCurrency, getStatusColor }: any) {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b p-6 flex justify-between items-center">
           <div>
-            <h3 className="text-2xl font-bold text-gray-900">{customer.company_name}</h3>
+            <h3 className="text-2xl font-bold text-gray-900">
+              {customer.company_name}
+            </h3>
             <span className={`inline-block mt-2 px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(customer.lead_status)}`}>
               {customer.lead_status}
             </span>
@@ -332,7 +499,6 @@ function CustomerDetailModal({ customer, onClose, formatCurrency, getStatusColor
         </div>
 
         <div className="p-6 space-y-6">
-          {/* ข้อมูลติดต่อ */}
           <div className="bg-blue-50 rounded-lg p-4">
             <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
               <span className="text-xl mr-2">📞</span>
@@ -358,7 +524,6 @@ function CustomerDetailModal({ customer, onClose, formatCurrency, getStatusColor
             </div>
           </div>
 
-          {/* ข้อมูลธุรกิจ */}
           <div className="bg-green-50 rounded-lg p-4">
             <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
               <span className="text-xl mr-2">🏢</span>
@@ -386,7 +551,6 @@ function CustomerDetailModal({ customer, onClose, formatCurrency, getStatusColor
             </div>
           </div>
 
-          {/* ข้อมูลการขาย */}
           <div className="bg-purple-50 rounded-lg p-4">
             <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
               <span className="text-xl mr-2">💰</span>
@@ -410,7 +574,7 @@ function CustomerDetailModal({ customer, onClose, formatCurrency, getStatusColor
               <div>
                 <p className="text-sm text-gray-600">Quality Lead</p>
                 <p className="font-medium text-gray-900">
-                  {customer.is_quality_lead ? '✅ ใช่' : '❌ ไม่ใช่'}
+                  {customer.is_quality_lead ? '✅ Lead คุณภาพ' : '❌ Lead ไม่คุณภาพ'}
                 </p>
               </div>
               <div>
@@ -424,7 +588,6 @@ function CustomerDetailModal({ customer, onClose, formatCurrency, getStatusColor
             </div>
           </div>
 
-          {/* ข้อมูลสัญญา */}
           {customer.contract_start_date && (
             <div className="bg-yellow-50 rounded-lg p-4">
               <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
@@ -452,7 +615,6 @@ function CustomerDetailModal({ customer, onClose, formatCurrency, getStatusColor
             </div>
           )}
 
-          {/* Pain Points */}
           {customer.pain_points && (
             <div className="bg-red-50 rounded-lg p-4">
               <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
@@ -463,7 +625,6 @@ function CustomerDetailModal({ customer, onClose, formatCurrency, getStatusColor
             </div>
           )}
 
-          {/* ข้อมูลระบบ */}
           <div className="bg-gray-50 rounded-lg p-4">
             <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
               <span className="text-xl mr-2">ℹ️</span>
@@ -490,7 +651,13 @@ function CustomerDetailModal({ customer, onClose, formatCurrency, getStatusColor
           </div>
         </div>
 
-        <div className="sticky bottom-0 bg-gray-50 border-t px-6 py-4 flex justify-end">
+        <div className="sticky bottom-0 bg-gray-50 border-t px-6 py-4 flex justify-end space-x-3">
+          <button
+            onClick={onEdit}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            ✏️ แก้ไขข้อมูล
+          </button>
           <button
             onClick={onClose}
             className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
@@ -503,10 +670,8 @@ function CustomerDetailModal({ customer, onClose, formatCurrency, getStatusColor
   );
 }
 
-// Add Customer Modal
-function AddCustomerModal({ user, onClose, onSuccess }: any) {
+function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any) {
   const [services, setServices] = useState<any[]>([]);
-  const [users, setUsers] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     company_name: '',
     email: '',
@@ -529,7 +694,6 @@ function AddCustomerModal({ user, onClose, onSuccess }: any) {
 
   useEffect(() => {
     fetchServices();
-    fetchUsers();
   }, []);
 
   const fetchServices = async () => {
@@ -539,16 +703,6 @@ function AddCustomerModal({ user, onClose, onSuccess }: any) {
       setServices(data.services || []);
     } catch (error) {
       console.error('Failed to fetch services:', error);
-    }
-  };
-
-  const fetchUsers = async () => {
-    try {
-      const response = await fetch(`/api/users?department=${user.department}`);
-      const data = await response.json();
-      setUsers(data.users || []);
-    } catch (error) {
-      console.error('Failed to fetch users:', error);
     }
   };
 
@@ -711,15 +865,19 @@ function AddCustomerModal({ user, onClose, onSuccess }: any) {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  แหล่งที่มา Lead
+                  แหล่งที่มา Lead *
                 </label>
-                <input
-                  type="text"
+                <select
                   value={formData.lead_source}
                   onChange={(e) => setFormData({ ...formData, lead_source: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  placeholder="เช่น Google, Facebook, แนะนำ"
-                />
+                  required
+                >
+                  <option value="">เลือกแหล่งที่มา</option>
+                  {leadSources.map((source: string) => (
+                    <option key={source} value={source}>{source}</option>
+                  ))}
+                </select>
               </div>
 
               <div>
@@ -743,7 +901,7 @@ function AddCustomerModal({ user, onClose, onSuccess }: any) {
                   onChange={(e) => setFormData({ ...formData, sales_person_id: parseInt(e.target.value) })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 >
-                  {users.map(u => (
+                  {users.map((u: any) => (
                     <option key={u.user_id} value={u.user_id}>
                       {u.full_name}
                     </option>
@@ -782,14 +940,14 @@ function AddCustomerModal({ user, onClose, onSuccess }: any) {
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="flex items-center text-sm font-medium text-gray-700">
                   <input
                     type="checkbox"
                     checked={formData.is_quality_lead}
                     onChange={(e) => setFormData({ ...formData, is_quality_lead: e.target.checked })}
-                    className="mr-2"
+                    className="mr-2 h-4 w-4"
                   />
-                  เป็น Quality Lead
+                  เป็น Lead คุณภาพ
                 </label>
               </div>
 
@@ -799,7 +957,7 @@ function AddCustomerModal({ user, onClose, onSuccess }: any) {
                     บริการที่สนใจ
                   </label>
                   <div className="space-y-2">
-                    {services.map(service => {
+                    {services.map((service: any) => {
                       const isSelected = formData.selectedServices.find(s => s.service_id === service.service_id);
                       return (
                         <div key={service.service_id} className="flex items-center space-x-3 p-2 border rounded">
@@ -856,7 +1014,296 @@ function AddCustomerModal({ user, onClose, onSuccess }: any) {
   );
 }
 
-// Contact History Modal  
+function EditCustomerModal({ customer, users, leadSources, onClose, onSuccess }: any) {
+  const [services, setServices] = useState<any[]>([]);
+  const [formData, setFormData] = useState({
+    company_name: customer.company_name || '',
+    email: customer.email || '',
+    phone: customer.phone || '',
+    location: customer.location || '',
+    business_type: customer.business_type || '',
+    budget: customer.budget || '',
+    contact_person: customer.contact_person || '',
+    lead_source: customer.lead_source || '',
+    search_keyword: customer.search_keyword || '',
+    is_quality_lead: customer.is_quality_lead || false,
+    sales_person_id: customer.sales_person_id,
+    lead_status: customer.lead_status || 'Lead',
+    pain_points: customer.pain_points || '',
+    contract_value: customer.contract_value || '',
+    selectedServices: [] as any[]
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    fetchServices();
+  }, []);
+
+  const fetchServices = async () => {
+    try {
+      const response = await fetch(`/api/services?department=${customer.department}`);
+      const data = await response.json();
+      setServices(data.services || []);
+    } catch (error) {
+      console.error('Failed to fetch services:', error);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      const response = await fetch(`/api/customers/${customer.customer_id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        onSuccess();
+      } else {
+        setError(data.error || 'เกิดข้อผิดพลาด');
+      }
+    } catch (err) {
+      setError('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full my-8">
+        <div className="p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-2xl font-bold text-gray-900">✏️ แก้ไขข้อมูลลูกค้า</h3>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl">
+              ×
+            </button>
+          </div>
+
+          {error && (
+            <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-6 max-h-[calc(100vh-200px)] overflow-y-auto pr-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  ชื่อบริษัท *
+                </label>
+                <input
+                  type="text"
+                  value={formData.company_name}
+                  onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  อีเมล
+                </label>
+                <input
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  เบอร์โทรศัพท์
+                </label>
+                <input
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  ชื่อผู้ติดต่อ
+                </label>
+                <input
+                  type="text"
+                  value={formData.contact_person}
+                  onChange={(e) => setFormData({ ...formData, contact_person: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  ที่ตั้ง
+                </label>
+                <input
+                  type="text"
+                  value={formData.location}
+                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  ประเภทธุรกิจ
+                </label>
+                <input
+                  type="text"
+                  value={formData.business_type}
+                  onChange={(e) => setFormData({ ...formData, business_type: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  งบประมาณ
+                </label>
+                <input
+                  type="number"
+                  value={formData.budget}
+                  onChange={(e) => setFormData({ ...formData, budget: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  แหล่งที่มา Lead *
+                </label>
+                <select
+                  value={formData.lead_source}
+                  onChange={(e) => setFormData({ ...formData, lead_source: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  required
+                >
+                  <option value="">เลือกแหล่งที่มา</option>
+                  {leadSources.map((source: string) => (
+                    <option key={source} value={source}>{source}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Keyword ที่ใช้ค้นหา
+                </label>
+                <input
+                  type="text"
+                  value={formData.search_keyword}
+                  onChange={(e) => setFormData({ ...formData, search_keyword: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Sale ผู้ดูแล
+                </label>
+                <select
+                  value={formData.sales_person_id}
+                  onChange={(e) => setFormData({ ...formData, sales_person_id: parseInt(e.target.value) })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                >
+                  {users.map((u: any) => (
+                    <option key={u.user_id} value={u.user_id}>
+                      {u.full_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  สถานะ Lead
+                </label>
+                <select
+                  value={formData.lead_status}
+                  onChange={(e) => setFormData({ ...formData, lead_status: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="Lead">Lead</option>
+                  <option value="Potential">Potential</option>
+                  <option value="Prospect">Prospect</option>
+                  <option value="Pipeline">Pipeline</option>
+                  <option value="PO">PO</option>
+                  <option value="Close">Close (ลูกค้าปฏิเสธ)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  มูลค่าสัญญา
+                </label>
+                <input
+                  type="number"
+                  value={formData.contract_value}
+                  onChange={(e) => setFormData({ ...formData, contract_value: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Pain Points และปัญหาที่ต้องการแก้ไข
+                </label>
+                <textarea
+                  value={formData.pain_points}
+                  onChange={(e) => setFormData({ ...formData, pain_points: e.target.value })}
+                  rows={3}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="flex items-center text-sm font-medium text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={formData.is_quality_lead}
+                    onChange={(e) => setFormData({ ...formData, is_quality_lead: e.target.checked })}
+                    className="mr-2 h-4 w-4"
+                  />
+                  เป็น Lead คุณภาพ
+                </label>
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-3 pt-4 border-t">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
+              >
+                {loading ? 'กำลังบันทึก...' : 'บันทึกการแก้ไข'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ContactHistoryModal({ customer, contacts, onClose, onAddContact }: any) {
   const [showAddForm, setShowAddForm] = useState(false);
 
@@ -881,13 +1328,9 @@ function ContactHistoryModal({ customer, contacts, onClose, onAddContact }: any)
           </button>
 
           {showAddForm && (
-            <AddContactForm
-              customerId={customer.customer_id}
-              onSuccess={() => {
-                setShowAddForm(false);
-                onAddContact();
-              }}
-            />
+            <div className="mb-6 p-4 border rounded-lg bg-gray-50">
+              <p className="text-gray-600">ฟอร์มเพิ่มการติดต่อ (ต้องมี AddContactForm component)</p>
+            </div>
           )}
 
           <div className="space-y-4">
