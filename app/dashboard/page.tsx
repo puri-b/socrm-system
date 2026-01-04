@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 
 export default function DashboardPage() {
+  // --- 1. State Logic (คงเดิมทุกประการ) ---
   const [user, setUser] = useState<any>(null);
   const [stats, setStats] = useState({
     totalCustomers: 0,
@@ -86,12 +87,14 @@ export default function DashboardPage() {
     }).format(value);
   };
 
-  // Donut Chart Component
-  const DonutChart = ({ data, title }: any) => {
+  // --- 2. Components (ปรับปรุง UI) ---
+
+  // Refined Donut Chart
+  const DonutChart = ({ data, title, subTitle }: any) => {
     const total = data.reduce((sum: number, item: any) => sum + item.value, 0);
     let currentAngle = 0;
 
-    const createArc = (percentage: number, color: string) => {
+    const createArc = (percentage: number) => {
       const startAngle = currentAngle;
       const angle = (percentage / 100) * 360;
       currentAngle += angle;
@@ -106,75 +109,131 @@ export default function DashboardPage() {
       
       const largeArc = angle > 180 ? 1 : 0;
       
+      // Handle 100% case correctly (full circle)
+      if (percentage >= 100) {
+         return `M 50 10 A 40 40 0 1 1 49.99 10 Z`; 
+      }
+      
       return `M 50 50 L ${x1} ${y1} A 40 40 0 ${largeArc} 1 ${x2} ${y2} Z`;
     };
 
     return (
-      <div className="bg-white rounded-lg shadow-sm p-4">
-        <h3 className="text-sm font-semibold text-gray-700 mb-3">{title}</h3>
-        <div className="flex items-center justify-center">
-          <div className="relative w-40 h-40">
-            <svg viewBox="0 0 100 100" className="transform -rotate-90">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col h-full">
+        <h3 className="text-gray-800 font-bold text-lg mb-1">{title}</h3>
+        {subTitle && <p className="text-gray-400 text-xs mb-6">{subTitle}</p>}
+        
+        <div className="flex flex-col md:flex-row items-center gap-8 mt-2 h-full justify-center">
+          {/* Chart Area */}
+          <div className="relative w-48 h-48 flex-shrink-0">
+            <svg viewBox="0 0 100 100" className="transform -rotate-90 w-full h-full drop-shadow-md">
+              {total === 0 && (
+                 <circle cx="50" cy="50" r="40" fill="#f3f4f6" />
+              )}
               {data.map((item: any, index: number) => {
                 const percentage = total > 0 ? (item.value / total) * 100 : 0;
                 if (percentage === 0) return null;
                 return (
                   <path
                     key={index}
-                    d={createArc(percentage, item.color)}
+                    d={createArc(percentage)}
                     fill={item.color}
-                    className="hover:opacity-80 transition-opacity cursor-pointer"
+                    className="hover:brightness-110 transition-all cursor-pointer"
                   />
                 );
               })}
-              <circle cx="50" cy="50" r="25" fill="white" />
+              <circle cx="50" cy="50" r="28" fill="white" />
             </svg>
-            <div className="absolute inset-0 flex items-center justify-center flex-col">
-              <div className="text-2xl font-bold text-gray-900">{total}</div>
-              <div className="text-xs text-gray-500">รวม</div>
+            <div className="absolute inset-0 flex items-center justify-center flex-col pointer-events-none">
+              <div className="text-3xl font-extrabold text-gray-800">{new Intl.NumberFormat('en-US', { notation: "compact" }).format(total)}</div>
+              <div className="text-[10px] uppercase tracking-wider text-gray-400 font-medium">รวมทั้งหมด</div>
             </div>
           </div>
-        </div>
-        <div className="mt-4 space-y-2">
-          {data.map((item: any, index: number) => (
-            <div key={index} className="flex items-center justify-between text-xs">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }}></div>
-                <span className="text-gray-700">{item.label}</span>
-              </div>
-              <span className="font-semibold text-gray-900">{item.value}</span>
+
+          {/* Legend Area */}
+          <div className="flex-1 w-full">
+             <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+              {data.map((item: any, index: number) => (
+                <div key={index} className="flex items-center justify-between group">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full ring-2 ring-white shadow-sm" style={{ backgroundColor: item.color }}></span>
+                    <span className="text-xs text-gray-600 group-hover:text-gray-900 transition-colors">{item.label}</span>
+                  </div>
+                  <span className="text-xs font-bold text-gray-800">{formatCurrency(item.value)}</span>
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
         </div>
       </div>
     );
   };
 
+  // Modern Stat Card
+  const ModernStatCard = ({ title, count, value, theme, icon }: any) => {
+    // Theme mapping for modern colors
+    const themes: any = {
+      gray:     { bg: 'bg-gray-50',     text: 'text-gray-600',    iconBg: 'bg-gray-100' },
+      yellow:   { bg: 'bg-yellow-50',   text: 'text-yellow-600',  iconBg: 'bg-yellow-100' },
+      orange:   { bg: 'bg-orange-50',   text: 'text-orange-600',  iconBg: 'bg-orange-100' },
+      purple:   { bg: 'bg-purple-50',   text: 'text-purple-600',  iconBg: 'bg-purple-100' },
+      green:    { bg: 'bg-green-50',    text: 'text-green-600',   iconBg: 'bg-green-100' },
+      red:      { bg: 'bg-red-50',      text: 'text-red-600',     iconBg: 'bg-red-100' },
+      blue:     { bg: 'bg-blue-50',     text: 'text-blue-600',    iconBg: 'bg-blue-100' },
+    };
+
+    const t = themes[theme] || themes.gray;
+
+    return (
+      <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-md hover:-translate-y-1 transition-all duration-200">
+        <div className="flex justify-between items-start mb-3">
+          <div className={`p-2 rounded-lg ${t.iconBg} text-xl`}>
+            {icon}
+          </div>
+          {value > 0 && (
+             <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${t.bg} ${t.text}`}>
+               ฿ {formatCurrency(value)}
+             </span>
+          )}
+        </div>
+        <div>
+           <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">{title}</p>
+           <h4 className="text-2xl font-bold text-gray-900">{count}</h4>
+        </div>
+      </div>
+    );
+  };
+
+  // Quick Action Card
+  const ActionCard = ({ href, icon, title, subtitle, colorClass }: any) => (
+    <Link
+      href={href}
+      className={`group relative bg-white overflow-hidden rounded-xl p-5 shadow-sm border border-gray-100 hover:shadow-lg transition-all duration-300`}
+    >
+      <div className={`absolute top-0 right-0 w-16 h-16 transform translate-x-4 -translate-y-4 rounded-full opacity-10 group-hover:scale-150 transition-transform duration-500 ${colorClass}`}></div>
+      
+      <div className="relative z-10 flex flex-col items-center text-center gap-3">
+         <div className={`text-3xl p-3 rounded-full bg-gray-50 group-hover:bg-white group-hover:shadow-sm transition-all duration-300`}>
+            {icon}
+         </div>
+         <div>
+            <h4 className="font-semibold text-gray-800 group-hover:text-blue-600 transition-colors">{title}</h4>
+            <p className="text-xs text-gray-500 mt-1">{subtitle}</p>
+         </div>
+      </div>
+    </Link>
+  );
+
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="flex flex-col justify-center items-center h-[60vh] space-y-4">
+        <div className="relative w-16 h-16">
+           <div className="absolute top-0 left-0 w-full h-full border-4 border-blue-100 rounded-full"></div>
+           <div className="absolute top-0 left-0 w-full h-full border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
+        </div>
+        <p className="text-gray-400 text-sm animate-pulse">กำลังโหลดข้อมูล...</p>
       </div>
     );
   }
-
-  const CompactStatCard = ({ title, count, value, color, icon }: any) => (
-    <div className={`bg-white rounded-lg shadow-sm hover:shadow transition-shadow p-3 border-l-4 ${color}`}>
-      <div className="flex items-center gap-2 mb-1">
-        <span className="text-lg">{icon}</span>
-        <h3 className="text-xs font-medium text-gray-600">{title}</h3>
-      </div>
-      <div className="flex items-baseline gap-2">
-        <p className="text-xl font-bold text-gray-900">{count}</p>
-        <span className="text-xs text-gray-500">รายการ</span>
-      </div>
-      {value > 0 && (
-        <p className="text-xs text-gray-600 mt-1">
-          ฿ {formatCurrency(value)}
-        </p>
-      )}
-    </div>
-  );
 
   const customerCountData = [
     { label: 'Lead', value: stats.leadCount, color: '#9CA3AF' },
@@ -195,152 +254,116 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg shadow p-4 text-white">
-        <h2 className="text-2xl font-bold mb-1">Dashboard</h2>
-        <p className="text-sm text-blue-100">ภาพรวมข้อมูลแผนก {user?.department}</p>
+    <div className="max-w-7xl mx-auto space-y-8 pb-10">
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+        <div>
+          <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight">Dashboard Overview</h2>
+          <p className="text-sm text-gray-500 mt-1">
+             ยินดีต้อนรับคุณ <span className="font-semibold text-blue-600">{user?.name || 'User'}</span> 
+             • แผนก <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-xs font-medium">{user?.department}</span>
+          </p>
+        </div>
+        <div className="text-right hidden md:block">
+           <p className="text-xs text-gray-400">ข้อมูลล่าสุดเมื่อ</p>
+           <p className="text-sm font-medium text-gray-700">{new Date().toLocaleDateString('th-TH', { dateStyle: 'long' })}</p>
+        </div>
       </div>
 
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {/* Analytics Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <DonutChart 
           data={customerCountData} 
-          title="📊 จำนวนลูกค้าแต่ละประเภท"
+          title="สถานะลูกค้า (จำนวน)"
+          subTitle="สัดส่วนจำนวนลูกค้าในแต่ละขั้นตอนการขาย"
         />
         <DonutChart 
           data={customerValueData} 
-          title="💰 มูลค่าลูกค้า (พันบาท)"
+          title="มูลค่าประเมิน (พันบาท)"
+          subTitle="มูลค่าสัญญาที่คาดการณ์แยกตามสถานะ"
         />
       </div>
 
-      {/* Customer Stats */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-base font-bold text-gray-900">สถิติลูกค้า</h3>
+      {/* Customer Pipeline Stats */}
+      <section>
+        <div className="flex items-center justify-between mb-4 px-1">
+          <div className="flex items-center gap-2">
+             <span className="w-1 h-6 bg-blue-600 rounded-full"></span>
+             <h3 className="text-lg font-bold text-gray-800">Pipeline Sales</h3>
+          </div>
           <Link 
             href="/dashboard/customers"
-            className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+            className="text-xs font-medium text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-full transition-colors"
           >
-            ดูทั้งหมด →
+            ดูข้อมูลทั้งหมด →
           </Link>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-          <CompactStatCard
-            title="Lead"
-            count={stats.leadCount}
-            value={stats.leadValue}
-            color="border-gray-400"
-            icon="📋"
-          />
-          <CompactStatCard
-            title="Potential"
-            count={stats.potentialCount}
-            value={stats.potentialValue}
-            color="border-yellow-500"
-            icon="⭐"
-          />
-          <CompactStatCard
-            title="Prospect"
-            count={stats.prospectCount}
-            value={stats.prospectValue}
-            color="border-orange-500"
-            icon="🎯"
-          />
-          <CompactStatCard
-            title="Pipeline"
-            count={stats.pipelineCount}
-            value={stats.pipelineValue}
-            color="border-purple-500"
-            icon="🚀"
-          />
-          <CompactStatCard
-            title="PO"
-            count={stats.poCount}
-            value={stats.poValue}
-            color="border-green-500"
-            icon="✅"
-          />
-          <CompactStatCard
-            title="Close"
-            count={stats.closeCount}
-            value={stats.closeValue}
-            color="border-red-500"
-            icon="❌"
-          />
+        
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          <ModernStatCard title="Lead" count={stats.leadCount} value={stats.leadValue} theme="gray" icon="📋" />
+          <ModernStatCard title="Potential" count={stats.potentialCount} value={stats.potentialValue} theme="yellow" icon="⭐" />
+          <ModernStatCard title="Prospect" count={stats.prospectCount} value={stats.prospectValue} theme="orange" icon="🎯" />
+          <ModernStatCard title="Pipeline" count={stats.pipelineCount} value={stats.pipelineValue} theme="purple" icon="🚀" />
+          <ModernStatCard title="PO" count={stats.poCount} value={stats.poValue} theme="green" icon="✅" />
+          <ModernStatCard title="Close" count={stats.closeCount} value={stats.closeValue} theme="red" icon="🏆" />
         </div>
-      </div>
+      </section>
 
-      {/* Tasks Stats */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-base font-bold text-gray-900">สถิติงาน</h3>
+      {/* Workflow & Tasks */}
+      <section>
+        <div className="flex items-center justify-between mb-4 px-1">
+          <div className="flex items-center gap-2">
+             <span className="w-1 h-6 bg-indigo-600 rounded-full"></span>
+             <h3 className="text-lg font-bold text-gray-800">Workflow Status</h3>
+          </div>
           <Link 
             href="/dashboard/tasks"
-            className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+            className="text-xs font-medium text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-full transition-colors"
           >
-            ดูทั้งหมด →
+            ดูงานทั้งหมด →
           </Link>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <CompactStatCard
-            title="รอดำเนินการ"
-            count={stats.pendingTasks}
-            value={0}
-            color="border-red-500"
-            icon="⏳"
-          />
-          <CompactStatCard
-            title="กำลังดำเนินการ"
-            count={stats.inProgressTasks}
-            value={0}
-            color="border-blue-500"
-            icon="🔄"
-          />
-          <CompactStatCard
-            title="เสร็จสิ้น"
-            count={stats.completedTasks}
-            value={0}
-            color="border-green-500"
-            icon="✅"
-          />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <ModernStatCard title="รอดำเนินการ" count={stats.pendingTasks} value={0} theme="red" icon="⏳" />
+          <ModernStatCard title="กำลังดำเนินการ" count={stats.inProgressTasks} value={0} theme="blue" icon="🔄" />
+          <ModernStatCard title="เสร็จสิ้นแล้ว" count={stats.completedTasks} value={0} theme="green" icon="✨" />
         </div>
-      </div>
+      </section>
 
       {/* Quick Actions */}
-      <div className="bg-white rounded-lg shadow-sm p-4">
-        <h3 className="text-base font-bold text-gray-900 mb-3">⚡ เมนูด่วน</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <Link
-            href="/dashboard/customers"
-            className="group p-4 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all text-center"
-          >
-            <div className="text-3xl mb-2 group-hover:scale-110 transition-transform">➕</div>
-            <div className="text-sm font-medium text-gray-700 group-hover:text-blue-600">เพิ่มลูกค้าใหม่</div>
-          </Link>
-          <Link
-            href="/dashboard/tasks"
-            className="group p-4 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all text-center"
-          >
-            <div className="text-3xl mb-2 group-hover:scale-110 transition-transform">📋</div>
-            <div className="text-sm font-medium text-gray-700 group-hover:text-blue-600">สร้างงานใหม่</div>
-          </Link>
-          <Link
-            href="/dashboard/customers"
-            className="group p-4 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all text-center"
-          >
-            <div className="text-3xl mb-2 group-hover:scale-110 transition-transform">👥</div>
-            <div className="text-sm font-medium text-gray-700 group-hover:text-blue-600">รายชื่อลูกค้า</div>
-          </Link>
-          <Link
-            href="/dashboard/tasks"
-            className="group p-4 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all text-center"
-          >
-            <div className="text-3xl mb-2 group-hover:scale-110 transition-transform">✔</div>
-            <div className="text-sm font-medium text-gray-700 group-hover:text-blue-600">รายการงาน</div>
-          </Link>
-        </div>
-      </div>
+      <section>
+         <h3 className="text-lg font-bold text-gray-800 mb-4 px-1">Quick Actions</h3>
+         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <ActionCard 
+              href="/dashboard/customers" 
+              icon="➕" 
+              title="เพิ่มลูกค้าใหม่" 
+              subtitle="บันทึกข้อมูล Lead หรือลูกค้า" 
+              colorClass="bg-blue-500"
+            />
+            <ActionCard 
+              href="/dashboard/tasks" 
+              icon="📝" 
+              title="สร้างงานใหม่" 
+              subtitle="มอบหมายงานหรือติดตามผล" 
+              colorClass="bg-indigo-500"
+            />
+            <ActionCard 
+              href="/dashboard/customers" 
+              icon="👥" 
+              title="ฐานข้อมูลลูกค้า" 
+              subtitle="ค้นหาและจัดการลูกค้าทั้งหมด" 
+              colorClass="bg-teal-500"
+            />
+            <ActionCard 
+              href="/dashboard/tasks" 
+              icon="📅" 
+              title="ตารางงาน" 
+              subtitle="ตรวจสอบรายการสิ่งที่ต้องทำ" 
+              colorClass="bg-rose-500"
+            />
+         </div>
+      </section>
     </div>
   );
 }
