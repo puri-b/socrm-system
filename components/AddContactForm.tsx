@@ -156,12 +156,13 @@ export default function AddContactForm({ customerId, onSuccess }: AddContactForm
             <option value="Prospect">Prospect</option>
             <option value="Pipeline">Pipeline</option>
             <option value="PO">PO</option>
+            <option value="Close">Close</option>
           </select>
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            มูลค่าการเสนอราคา (บาท)
+            มูลค่าการเสนอราคา (หากยังไม่เสนอให้ใส่ 0)
           </label>
           <input
             type="number"

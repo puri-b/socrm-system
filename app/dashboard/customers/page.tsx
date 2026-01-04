@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import AddContactForm from '@/components/AddContactForm';
 
 export default function CustomersPage() {
   const [user, setUser] = useState<any>(null);
@@ -357,7 +358,7 @@ export default function CustomersPage() {
                   Sale
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                  การดำเนินการ
+                  อัพเดตการติดต่อ
                 </th>
               </tr>
             </thead>
@@ -1328,9 +1329,13 @@ function ContactHistoryModal({ customer, contacts, onClose, onAddContact }: any)
           </button>
 
           {showAddForm && (
-            <div className="mb-6 p-4 border rounded-lg bg-gray-50">
-              <p className="text-gray-600">ฟอร์มเพิ่มการติดต่อ (ต้องมี AddContactForm component)</p>
-            </div>
+            <AddContactForm
+              customerId={Number(customer.customer_id)} // ✅ สำคัญ: ให้เป็น number ชัวร์
+              onSuccess={() => {
+                setShowAddForm(false);
+                onAddContact(); // ✅ refresh contacts + customers (จาก parent)
+              }}
+            />
           )}
 
           <div className="space-y-4">
@@ -1351,21 +1356,11 @@ function ContactHistoryModal({ customer, contacts, onClose, onAddContact }: any)
                     </span>
                   </div>
                   <div className="text-sm text-gray-600 space-y-1">
-                    {contact.customer_contact_person && (
-                      <p>ผู้ติดต่อ: {contact.customer_contact_person}</p>
-                    )}
-                    {contact.sales_person_name && (
-                      <p>Sale: {contact.sales_person_name}</p>
-                    )}
-                    {contact.quotation_amount && (
-                      <p>มูลค่าเสนอราคา: {Number(contact.quotation_amount).toLocaleString()} บาท</p>
-                    )}
-                    {contact.lead_status_updated && (
-                      <p>อัพเดตสถานะ: {contact.lead_status_updated}</p>
-                    )}
-                    {contact.notes && (
-                      <p className="mt-2">หมายเหตุ: {contact.notes}</p>
-                    )}
+                    {contact.customer_contact_person && <p>ผู้ติดต่อ: {contact.customer_contact_person}</p>}
+                    {contact.sales_person_name && <p>Sale: {contact.sales_person_name}</p>}
+                    {contact.quotation_amount && <p>มูลค่าเสนอราคา: {Number(contact.quotation_amount).toLocaleString()} บาท</p>}
+                    {contact.lead_status_updated && <p>อัพเดตสถานะ: {contact.lead_status_updated}</p>}
+                    {contact.notes && <p className="mt-2">หมายเหตุ: {contact.notes}</p>}
                   </div>
                 </div>
               ))
