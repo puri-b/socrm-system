@@ -305,7 +305,7 @@ export default function DashboardPage() {
           <ModernStatCard title="Prospect" count={stats.prospectCount} value={stats.prospectValue} theme="orange" icon="🎯" />
           <ModernStatCard title="Pipeline" count={stats.pipelineCount} value={stats.pipelineValue} theme="purple" icon="🚀" />
           <ModernStatCard title="PO" count={stats.poCount} value={stats.poValue} theme="green" icon="✅" />
-          <ModernStatCard title="Close" count={stats.closeCount} value={stats.closeValue} theme="red" icon="🏆" />
+          <ModernStatCard title="Close" count={stats.closeCount} value={stats.closeValue} theme="red" icon="❌" />
         </div>
       </section>
 
