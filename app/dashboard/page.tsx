@@ -134,9 +134,9 @@ export default function DashboardPage() {
       {/* Header */}
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-100 pb-8">
         <div>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">System Overview</h1>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Dashboard</h1>
           <p className="text-slate-500 text-sm mt-1">
-            ยินดีต้อนรับ, <span className="text-blue-600 font-bold">{user?.name}</span> • แผนก {user?.department}
+            ยินดีต้อนรับ, <span className="text-blue-600 font-bold">{user.full_name}</span> • แผนก {user.department}
           </p>
         </div>
         <div className="bg-slate-50 px-4 py-2 rounded-2xl border border-slate-100">
