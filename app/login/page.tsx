@@ -46,7 +46,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">SO CRM System</h1>
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">SO Lead Management System</h1>
           <p className="text-gray-600">เข้าสู่ระบบเพื่อใช้งาน</p>
         </div>
 
@@ -112,8 +112,8 @@ export default function LoginPage() {
         </form>
 
         <div className="mt-6 text-center text-sm text-gray-600">
-          <p>ผู้ดูแลระบบเริ่มต้น:</p>
-          <p className="font-mono text-xs mt-1">admin@socrm.com / admin123</p>
+          <p>เวอร์ชั้น 1.0 เพื่อการทดสอบการใช้งาน</p>
+          <p className="font-mono text-xs mt-1">หากพบปัญหาการใช้งานกรุณาแจ้งคุณภูริ</p>
         </div>
       </div>
     </div>
