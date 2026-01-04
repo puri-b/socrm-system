@@ -243,7 +243,7 @@ export default function CustomersPage() {
               <option value="Prospect">Prospect</option>
               <option value="Pipeline">Pipeline</option>
               <option value="PO">PO</option>
-              <option value="Close">Close (ปิดการขาย)</option>
+              <option value="Close">Close (ลูกค้าปฏิเสธ)</option>
             </select>
           </div>
 

@@ -42,7 +42,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
-              <h1 className="text-xl font-bold text-gray-900">SO CRM</h1>
+              <h1 className="text-xl font-bold text-gray-900">SO LEAD Management System</h1>
               <span className="ml-4 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
                 {user.department}
               </span>
