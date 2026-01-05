@@ -89,6 +89,18 @@ export default function DashboardPage() {
 
   const formatCurrency = (v: number) => new Intl.NumberFormat('th-TH').format(v);
 
+  const formatCompactCurrency = (v: number) => {
+    // แสดงผลแบบอ่านง่าย (เช่น 1.2M) เพื่อใช้ในกราฟ
+    const abs = Math.abs(v);
+    const sign = v < 0 ? '-' : '';
+    const fmt = (n: number) => new Intl.NumberFormat('th-TH', { maximumFractionDigits: 1 }).format(n);
+
+    if (abs >= 1_000_000_000) return `${sign}${fmt(abs / 1_000_000_000)}B`;
+    if (abs >= 1_000_000) return `${sign}${fmt(abs / 1_000_000)}M`;
+    if (abs >= 1_000) return `${sign}${fmt(abs / 1_000)}K`;
+    return `${sign}${new Intl.NumberFormat('th-TH').format(abs)}`;
+  };
+
   // --- Sub Components ---
 
   const ModernStatCard = ({ title, count, value, themeColor, icon: Icon }: any) => {
@@ -121,6 +133,108 @@ export default function DashboardPage() {
     );
   };
 
+  const DonutCard = ({
+    title,
+    subtitle,
+    data,
+    centerText,
+    centerSubText,
+    valueFormatter,
+  }: {
+    title: string;
+    subtitle: string;
+    data: { label: string; value: number; color: string }[];
+    centerText: string;
+    centerSubText: string;
+    valueFormatter: (v: number) => string;
+  }) => {
+    const total = data.reduce((s, d) => s + (Number.isFinite(d.value) ? d.value : 0), 0);
+    const safeTotal = total > 0 ? total : 0;
+
+    const size = 220;
+    const stroke = 35;
+    const r = (size - stroke) / 2;
+    const c = 2 * Math.PI * r;
+
+    let offset = 0;
+    const segments = data.map((d, idx) => {
+      const v = Number.isFinite(d.value) ? d.value : 0;
+      const frac = safeTotal === 0 ? 0 : v / safeTotal;
+      const dash = frac * c;
+      const dasharray = `${dash} ${c - dash}`;
+      const dashoffset = -offset;
+      offset += dash;
+
+      return (
+        <circle
+          key={`${d.label}-${idx}`}
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="transparent"
+          stroke={d.color}
+          strokeWidth={stroke}
+          strokeDasharray={dasharray}
+          strokeDashoffset={dashoffset}
+          strokeLinecap="butt"
+        />
+      );
+    });
+
+    return (
+      <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{title}</p>
+            <h4 className="text-lg font-black text-slate-800 tracking-tight mt-1">{subtitle}</h4>
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Total</p>
+            <p className="text-sm font-black text-slate-700">{centerText}</p>
+          </div>
+        </div>
+
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-[260px_1fr] gap-6 items-center">
+          <div className="relative w-[220px] h-[220px] mx-auto">
+            <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="block">
+              {/* base ring */}
+              <circle cx={size / 2} cy={size / 2} r={r} fill="transparent" stroke="#e2e8f0" strokeWidth={stroke} />
+              {/* segments */}
+              <g transform={`rotate(-90 ${size / 2} ${size / 2})`}>{segments}</g>
+            </svg>
+
+            {/* center text */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+              <div className="text-3xl font-black text-slate-900 tracking-tight">{centerText}</div>
+              <div className="text-xs text-slate-400 font-semibold mt-1">{centerSubText}</div>
+            </div>
+          </div>
+
+          {/* legend */}
+          <div className="space-y-2">
+            {data.map((d) => {
+              const v = Number.isFinite(d.value) ? d.value : 0;
+              const pct = safeTotal === 0 ? 0 : (v / safeTotal) * 100;
+
+              return (
+                <div key={d.label} className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="w-3 h-3 rounded-full" style={{ backgroundColor: d.color }} />
+                    <span className="text-sm font-semibold text-slate-700 truncate">{d.label}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-black text-slate-800">{valueFormatter(v)}</span>
+                    <span className="text-xs font-bold text-slate-400 w-[54px] text-right">{pct.toFixed(0)}%</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   if (loading) return (
     <div className="flex flex-col items-center justify-center h-[60vh] gap-4">
       <div className="w-10 h-10 border-4 border-slate-100 border-t-blue-600 rounded-full animate-spin"></div>
@@ -145,7 +259,7 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {/* Quick Actions - ปรับให้ Modern และ Clean ขึ้นมาก */}
+      {/* Quick Actions */}
       <section>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
@@ -166,7 +280,58 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      {/* Pipeline Sale Section */}
+      {/* ✅ Donut Charts (ตามที่ต้องการ: ใต้เมนูหลัก และเหนือ Pipeline Progress) */}
+      <section className="space-y-6">
+        <div className="flex items-center gap-4">
+          <div className="h-8 w-1.5 bg-slate-800 rounded-full"></div>
+          <h3 className="text-xl font-black text-slate-800 tracking-tight">Pipeline Overview</h3>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Left: Count by Pipeline */}
+          <DonutCard
+            title="Customers"
+            subtitle="จำนวนลูกค้าแต่ละ Pipeline"
+            data={[
+              { label: 'Lead', value: stats.leadCount, color: '#475569' },
+              { label: 'Potential', value: stats.potentialCount, color: '#f59e0b' },
+              { label: 'Prospect', value: stats.prospectCount, color: '#fb923c' },
+              { label: 'Pipeline', value: stats.pipelineCount, color: '#8b5cf6' },
+              { label: 'PO', value: stats.poCount, color: '#10b981' },
+              { label: 'Close', value: stats.closeCount, color: '#f43f5e' },
+            ]}
+            centerText={String(stats.totalCustomers)}
+            centerSubText="Total Customers"
+            valueFormatter={(v) => `${new Intl.NumberFormat('th-TH').format(v)} ราย`}
+          />
+
+          {/* Right: Value by Pipeline */}
+          <DonutCard
+            title="Value"
+            subtitle="มูลค่าของแต่ละ Pipeline"
+            data={[
+              { label: 'Lead', value: stats.leadValue, color: '#475569' },
+              { label: 'Potential', value: stats.potentialValue, color: '#f59e0b' },
+              { label: 'Prospect', value: stats.prospectValue, color: '#fb923c' },
+              { label: 'Pipeline', value: stats.pipelineValue, color: '#8b5cf6' },
+              { label: 'PO', value: stats.poValue, color: '#10b981' },
+              { label: 'Close', value: stats.closeValue, color: '#f43f5e' },
+            ]}
+            centerText={`฿${formatCompactCurrency(
+              stats.leadValue +
+                stats.potentialValue +
+                stats.prospectValue +
+                stats.pipelineValue +
+                stats.poValue +
+                stats.closeValue
+            )}`}
+            centerSubText="Total Value"
+            valueFormatter={(v) => `฿${formatCompactCurrency(v)}`}
+          />
+        </div>
+      </section>
+
+      {/* Pipeline Progress */}
       <section className="space-y-6">
         <div className="flex items-center gap-4">
           <div className="h-8 w-1.5 bg-blue-600 rounded-full"></div>
@@ -182,11 +347,11 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      {/* Workflow Status Section - ปรับให้ดูเป็นระเบียบ เรียบง่าย */}
+      {/* Workflow Status */}
       <section className="bg-slate-50 p-8 rounded-[2.5rem] border border-slate-100">
         <div className="flex items-center gap-4 mb-8">
           <div className="h-8 w-1.5 bg-slate-800 rounded-full"></div>
-          <h3 className="text-xl font-black text-slate-800 tracking-tight">Operational Workflow</h3>
+          <h3 className="text-xl font-black text-slate-800 tracking-tight">Task Overview</h3>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/50 flex items-center gap-5">
