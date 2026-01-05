@@ -21,6 +21,8 @@ export default function CustomersPage() {
   const [salesPersonFilter, setSalesPersonFilter] = useState('all');
   const [qualityLeadFilter, setQualityLeadFilter] = useState('all');
   const [departmentFilter, setDepartmentFilter] = useState('all');
+  const [serviceFilter, setServiceFilter] = useState('all');
+  const [filterServices, setFilterServices] = useState<any[]>([]);
 
   const LEAD_SOURCES = [
     'Offline - Callout',
@@ -46,12 +48,39 @@ export default function CustomersPage() {
       setUser(JSON.parse(userData));
       fetchCustomers();
       fetchUsers();
+      fetchFilterServices();
     }
   }, []);
 
+  // โหลดรายการบริการสำหรับตัวกรอง (User/Manager เห็นเฉพาะแผนกตัวเอง)
+  // Admin: ถ้าเลือก department filter จะโหลดบริการของแผนกนั้น, ถ้า all จะโหลดทุกบริการ
+  useEffect(() => {
+    if (!user) return;
+    fetchFilterServices();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.role, user?.department, departmentFilter]);
+
   useEffect(() => {
     filterCustomers();
-  }, [customers, statusFilter, searchTerm, leadSourceFilter, salesPersonFilter, qualityLeadFilter, departmentFilter]);
+  }, [customers, statusFilter, searchTerm, leadSourceFilter, salesPersonFilter, qualityLeadFilter, departmentFilter, serviceFilter]);
+
+  const fetchFilterServices = async () => {
+    try {
+      if (!user) return;
+
+      let url = '/api/services';
+      if (user.role === 'admin' && departmentFilter !== 'all') {
+        url = `/api/services?department=${encodeURIComponent(departmentFilter)}`;
+      }
+
+      const response = await fetch(url);
+      const data = await response.json();
+      setFilterServices(data.services || []);
+    } catch (error) {
+      console.error('Failed to fetch services (filter):', error);
+      setFilterServices([]);
+    }
+  };
 
   const fetchUsers = async () => {
     try {
@@ -97,6 +126,11 @@ export default function CustomersPage() {
 
     if (departmentFilter !== 'all') {
       filtered = filtered.filter(c => c.department === departmentFilter);
+    }
+
+    if (serviceFilter !== 'all') {
+      const serviceId = parseInt(serviceFilter);
+      filtered = filtered.filter(c => Array.isArray(c.service_ids) && c.service_ids.includes(serviceId));
     }
 
     if (searchTerm) {
@@ -266,6 +300,24 @@ export default function CustomersPage() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
+              บริการ
+            </label>
+            <select
+              value={serviceFilter}
+              onChange={(e) => setServiceFilter(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">ทั้งหมด</option>
+              {filterServices.map((s: any) => (
+                <option key={s.service_id} value={s.service_id}>
+                  {s.service_name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Sale ผู้ดูแล
             </label>
             <select
@@ -318,6 +370,7 @@ export default function CustomersPage() {
               onClick={() => {
                 setStatusFilter('all');
                 setLeadSourceFilter('all');
+                setServiceFilter('all');
                 setSalesPersonFilter('all');
                 setQualityLeadFilter('all');
                 setDepartmentFilter('all');

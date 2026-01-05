@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const client = await getClient();
-  
+
   try {
     const user = getUserFromRequest(request);
     if (!user) {
@@ -48,11 +48,51 @@ export async function POST(request: NextRequest) {
       contact_subject,
       contact_channel,
       customer_contact_person,
+      sales_person_id,
       quotation_amount,
       next_followup_date,
       notes,
       lead_status_updated
     } = data;
+
+    if (!customer_id) {
+      return NextResponse.json({ error: 'Customer ID required' }, { status: 400 });
+    }
+
+    // Ensure the user can access the customer's department
+    const cust = await client.query(
+      'SELECT customer_id, department FROM x_socrm.customers WHERE customer_id = $1',
+      [customer_id]
+    );
+
+    if (cust.rows.length === 0) {
+      return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
+    }
+
+    if (user.role !== 'admin' && cust.rows[0].department !== user.department) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
+
+    // Allow assigning the contact to another sales person (within the same department for non-admin)
+    const assignedSalesPersonId = sales_person_id ? Number(sales_person_id) : user.user_id;
+
+    if (sales_person_id) {
+      const sp = await client.query(
+        'SELECT user_id, department FROM x_socrm.users WHERE user_id = $1 AND is_active = true',
+        [assignedSalesPersonId]
+      );
+
+      if (sp.rows.length === 0) {
+        return NextResponse.json({ error: 'Sales person not found' }, { status: 400 });
+      }
+
+      if (user.role !== 'admin' && sp.rows[0].department !== user.department) {
+        return NextResponse.json(
+          { error: 'Access denied (sales person department mismatch)' },
+          { status: 403 }
+        );
+      }
+    }
 
     await client.query('BEGIN');
 
@@ -65,7 +105,7 @@ export async function POST(request: NextRequest) {
       RETURNING *`,
       [
         customer_id, contact_date, contact_subject, contact_channel,
-        customer_contact_person, user.user_id, quotation_amount,
+        customer_contact_person, assignedSalesPersonId, quotation_amount,
         next_followup_date, notes, lead_status_updated
       ]
     );
@@ -95,9 +135,9 @@ export async function POST(request: NextRequest) {
 
     await client.query('COMMIT');
 
-    return NextResponse.json({ 
-      success: true, 
-      contact: contactResult.rows[0] 
+    return NextResponse.json({
+      success: true,
+      contact: contactResult.rows[0]
     });
   } catch (error) {
     await client.query('ROLLBACK');

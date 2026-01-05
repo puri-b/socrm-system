@@ -10,17 +10,24 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const department = searchParams.get('department');
+    const departmentParam = searchParams.get('department');
 
-    if (!department) {
-      return NextResponse.json({ error: 'Department required' }, { status: 400 });
+    // ✅ Admin: เห็นทุกบริการ (หรือ filter ตาม department ได้)
+    // ✅ Manager/User: เห็นเฉพาะบริการของแผนกตนเอง (ignore query param)
+    const isAdmin = user.role === 'admin';
+    const department = isAdmin ? departmentParam : user.department;
+
+    let sql = `SELECT * FROM x_socrm.services`;
+    const params: any[] = [];
+
+    if (department) {
+      sql += ` WHERE department = $1`;
+      params.push(department);
     }
 
-    const result = await query(
-      `SELECT * FROM x_socrm.services WHERE department = $1 ORDER BY service_name`,
-      [department]
-    );
+    sql += ` ORDER BY service_name`;
 
+    const result = await query(sql, params);
     return NextResponse.json({ services: result.rows });
   } catch (error) {
     console.error('Get services error:', error);

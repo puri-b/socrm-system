@@ -5,7 +5,7 @@ import { getUserFromRequest, canManageUsers, isAdmin, hashPassword } from '@/lib
 export async function GET(request: NextRequest) {
   try {
     const user = getUserFromRequest(request);
-    if (!user || !canManageUsers(user)) {
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -15,16 +15,23 @@ export async function GET(request: NextRequest) {
     let queryText = `
       SELECT user_id, email, full_name, department, role, is_active, created_at
       FROM x_socrm.users
-      WHERE 1=1
+      WHERE is_active = true
     `;
     const params: any[] = [];
+    let paramIndex = 1;
 
-    if (!isAdmin(user)) {
-      queryText += ' AND department = $1';
+    // ✅ Admin เห็นทุกแผนก (ถ้าส่ง department มาก็ filter ให้)
+    if (isAdmin(user)) {
+      if (department) {
+        queryText += ` AND department = $${paramIndex}`;
+        params.push(department);
+        paramIndex++;
+      }
+    } else {
+      // ✅ Manager/User เห็นเฉพาะแผนกตัวเองเท่านั้น
+      queryText += ` AND department = $${paramIndex}`;
       params.push(user.department);
-    } else if (department) {
-      queryText += ' AND department = $1';
-      params.push(department);
+      paramIndex++;
     }
 
     queryText += ' ORDER BY created_at DESC';
