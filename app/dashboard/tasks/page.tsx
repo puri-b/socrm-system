@@ -38,7 +38,14 @@ export default function TasksPage() {
   useEffect(() => {
     const userData = localStorage.getItem('user');
     if (userData) {
-      setUser(JSON.parse(userData));
+      const u = JSON.parse(userData);
+      setUser(u);
+
+      // ✅ UX: ระดับ User เห็นงานของตัวเองเป็นค่าเริ่มต้น (ยังเปลี่ยนตัวกรองได้)
+      if (u?.role === 'user') {
+        setAssignedFilter(String(u.user_id));
+      }
+
       fetchData();
     }
   }, []);
@@ -50,7 +57,10 @@ export default function TasksPage() {
   const fetchData = async () => {
     try {
       const [tasksRes, customersRes, usersRes] = await Promise.all([
-        fetch('/api/tasks'), fetch('/api/customers'), fetch('/api/users')
+        // ✅ กัน cache + ให้แน่ใจว่า cookie (token) ถูกส่งไปเสมอ
+        fetch('/api/tasks', { cache: 'no-store', credentials: 'include' }),
+        fetch('/api/customers', { cache: 'no-store', credentials: 'include' }),
+        fetch('/api/users', { cache: 'no-store', credentials: 'include' })
       ]);
       const tasksData = await tasksRes.json();
       const customersData = await customersRes.json();
@@ -68,7 +78,10 @@ export default function TasksPage() {
   const filterTasks = () => {
     let filtered = tasks;
     if (statusFilter !== 'all') filtered = filtered.filter(t => t.status === statusFilter);
-    if (assignedFilter !== 'all') filtered = filtered.filter(t => t.assigned_to === parseInt(assignedFilter));
+    if (assignedFilter !== 'all') {
+      const targetId = Number(assignedFilter);
+      filtered = filtered.filter(t => Number(t.assigned_to) === targetId);
+    }
     setFilteredTasks(filtered);
   };
 

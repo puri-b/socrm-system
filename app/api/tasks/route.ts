@@ -27,10 +27,15 @@ export async function GET(request: NextRequest) {
     const params: any[] = [];
     let paramCount = 1;
 
+    // ✅ การมองเห็นงาน:
+    // - Admin เห็นทุกแผนก
+    // - Manager/User เห็นงานในแผนกตนเองเป็นหลัก
+    // - และเพื่อกันเคสงานถูกมอบหมายข้ามเงื่อนไข/ข้อมูล department ไม่ตรงกัน
+    //   ให้ผู้รับผิดชอบ (assigned_to) และผู้สร้าง (created_by) มองเห็นงานของตนเองเสมอ
     if (user.role !== 'admin') {
-      queryText += ` AND t.department = $${paramCount}`;
-      params.push(user.department);
-      paramCount++;
+      queryText += ` AND (t.department = $${paramCount} OR t.assigned_to = $${paramCount + 1} OR t.created_by = $${paramCount + 2})`;
+      params.push(user.department, user.user_id, user.user_id);
+      paramCount += 3;
     }
 
     if (status) {
@@ -73,11 +78,15 @@ export async function POST(request: NextRequest) {
       department
     } = data;
 
-    if (!canAccessDepartment(user, department)) {
+    const assignedToId = assigned_to !== undefined && assigned_to !== null ? Number(assigned_to) : user.user_id;
+    // ✅ กันเคส client ส่ง department ไม่มา/ว่าง ให้ใช้ department จาก token เป็นหลัก
+    const taskDepartment = (department && String(department).trim()) ? String(department).trim() : user.department;
+
+    if (!canAccessDepartment(user, taskDepartment)) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    if (assigned_to !== user.user_id && !canManageUsers(user)) {
+    if (assignedToId !== user.user_id && !canManageUsers(user)) {
       return NextResponse.json({ 
         error: 'เฉพาะ Manager และ Admin เท่านั้นที่สามารถมอบหมายงานให้ผู้อื่นได้' 
       }, { status: 403 });
@@ -90,8 +99,14 @@ export async function POST(request: NextRequest) {
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       RETURNING *`,
       [
-        customer_id, assigned_to, user.user_id, title, description,
-        task_date, status || 'pending', department
+        customer_id || null,
+        assignedToId,
+        user.user_id,
+        title,
+        description,
+        task_date,
+        status || 'pending',
+        taskDepartment
       ]
     );
 
