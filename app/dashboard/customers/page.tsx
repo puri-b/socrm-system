@@ -659,7 +659,7 @@ function CustomerDetailModal({ customer, onClose, onEdit, formatCurrency, getSta
             <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
               <Info label="Sale ผู้ดูแล" value={customer.sales_person_name || '—'} />
               <Info label="มูลค่าสัญญา" value={customer.contract_value ? `฿ ${formatCurrency(customer.contract_value)}` : '—'} />
-              <Info label="Quality Lead" value={customer.is_quality_lead ? '✅ Lead คุณภาพ' : 'Lead ไม่คุณภาพ'} />
+              <Info label="Quality Lead" value={customer.is_quality_lead ? 'Lead คุณภาพ' : 'Lead ไม่คุณภาพ'} />
               <Info label="Keyword ค้นหา" value={customer.search_keyword || '—'} />
             </div>
             {customer.pain_points && (

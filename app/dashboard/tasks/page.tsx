@@ -5,24 +5,115 @@ import { useEffect, useState } from 'react';
 // --- Internal SVG Icons ---
 const Icons = {
   Plus: () => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <line x1="12" y1="5" x2="12" y2="19" />
+      <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
   ),
   Excel: () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M8 13h2v7"/><path d="M12 13v7"/><path d="M16 13v7"/><path d="M8 13h8"/></svg>
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+      <polyline points="14 2 14 8 20 8" />
+      <path d="M8 13h2v7" />
+      <path d="M12 13v7" />
+      <path d="M16 13v7" />
+      <path d="M8 13h8" />
+    </svg>
   ),
   Filter: () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+    </svg>
   ),
   Calendar: () => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+      <line x1="16" y1="2" x2="16" y2="6" />
+      <line x1="8" y1="2" x2="8" y2="6" />
+      <line x1="3" y1="10" x2="21" y2="10" />
+    </svg>
   ),
   Close: () => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
   ),
   Alert: () => (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="8" x2="12" y2="12" />
+      <line x1="12" y1="16" x2="12.01" y2="16" />
+    </svg>
   )
 };
+
+function formatDateTimeTH(value: any) {
+  if (!value) return '—';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleString('th-TH', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
 
 export default function TasksPage() {
   const [user, setUser] = useState<any>(null);
@@ -36,15 +127,17 @@ export default function TasksPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [assignedFilter, setAssignedFilter] = useState('all');
   const [projectFilter, setProjectFilter] = useState('all');
-  const resetFilters = () => {
-        setStatusFilter('all');
-        setAssignedFilter('all');
-        setCustomerFilter('all');
-        setProjectFilter('all');
-};
 
-  // ✅ NEW: customer filter
+  // ✅ customer filter
   const [customerFilter, setCustomerFilter] = useState('all');
+
+  // ✅ ล้างตัวกรอง
+  const resetFilters = () => {
+    setStatusFilter('all');
+    setAssignedFilter('all');
+    setCustomerFilter('all');
+    setProjectFilter('all');
+  };
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
@@ -52,10 +145,12 @@ export default function TasksPage() {
       setUser(JSON.parse(userData));
       fetchData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     filterTasks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks, statusFilter, assignedFilter, projectFilter, customerFilter]);
 
   const fetchData = async () => {
@@ -81,17 +176,17 @@ export default function TasksPage() {
   const filterTasks = () => {
     let filtered = tasks;
 
-    if (statusFilter !== 'all') filtered = filtered.filter(t => t.status === statusFilter);
-    if (assignedFilter !== 'all') filtered = filtered.filter(t => t.assigned_to === parseInt(assignedFilter));
+    if (statusFilter !== 'all') filtered = filtered.filter((t: any) => t.status === statusFilter);
+    if (assignedFilter !== 'all') filtered = filtered.filter((t: any) => t.assigned_to === parseInt(assignedFilter));
 
-    // ✅ NEW: customer filter
-    if (customerFilter !== 'all') filtered = filtered.filter(t => Number(t.customer_id) === Number(customerFilter));
+    // ✅ customer filter
+    if (customerFilter !== 'all') filtered = filtered.filter((t: any) => Number(t.customer_id) === Number(customerFilter));
 
     if (projectFilter !== 'all') {
       if (projectFilter === 'none') {
-        filtered = filtered.filter(t => !t.project_id);
+        filtered = filtered.filter((t: any) => !t.project_id);
       } else {
-        filtered = filtered.filter(t => Number(t.project_id) === Number(projectFilter));
+        filtered = filtered.filter((t: any) => Number(t.project_id) === Number(projectFilter));
       }
     }
 
@@ -134,29 +229,28 @@ export default function TasksPage() {
     return texts[status] || status;
   };
 
-  if (loading) return (
-    <div className="h-[60vh] flex flex-col items-center justify-center gap-3">
-      <div className="w-8 h-8 border-3 border-slate-100 border-t-blue-600 rounded-full animate-spin"></div>
-      <p className="text-slate-400 text-sm">กำลังโหลดข้อมูล...</p>
-    </div>
-  );
+  if (loading)
+    return (
+      <div className="h-[60vh] flex flex-col items-center justify-center gap-3">
+        <div className="w-8 h-8 border-3 border-slate-100 border-t-blue-600 rounded-full animate-spin"></div>
+        <p className="text-slate-400 text-sm">กำลังโหลดข้อมูล...</p>
+      </div>
+    );
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 pb-20 px-4 md:px-0">
-
       {/* --- Header --- */}
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-800 tracking-tight">รายการงาน</h1>
-          <p className="text-slate-500 text-sm font-normal">
-            จัดการและติดตามความคืบหน้างานทั้งหมด ({filteredTasks.length} รายการ)
-          </p>
+          <p className="text-slate-500 text-sm font-normal">จัดการและติดตามความคืบหน้างานทั้งหมด ({filteredTasks.length} รายการ)</p>
         </div>
         <div className="flex items-center gap-2">
-          <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-medium hover:bg-slate-50 transition-all shadow-sm">
-            <Icons.Excel /> ส่งออก Excel
-          </button>
-          <button onClick={() => setShowAddModal(true)} className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-all shadow-md shadow-blue-100">
+         
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-all shadow-md shadow-blue-100"
+          >
             <Icons.Plus /> สร้างงานใหม่
           </button>
         </div>
@@ -169,7 +263,6 @@ export default function TasksPage() {
           <span className="text-xs font-semibold uppercase tracking-wider">ตัวกรอง</span>
         </div>
 
-        {/* ✅ เปลี่ยนเป็น md:grid-cols-4 เพื่อเพิ่ม filter ลูกค้า */}
         <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-3 w-full">
           <select
             value={statusFilter}
@@ -195,7 +288,6 @@ export default function TasksPage() {
             ))}
           </select>
 
-          {/* ✅ NEW: Customer Filter */}
           <select
             value={customerFilter}
             onChange={(e) => setCustomerFilter(e.target.value)}
@@ -229,16 +321,14 @@ export default function TasksPage() {
             ))}
           </select>
         </div>
-        <button
-  type="button"
-  onClick={resetFilters}
-  className="px-4 py-2 rounded-xl text-sm font-semibold
-             bg-white border border-slate-200 text-slate-600
-             hover:bg-slate-50 transition-all whitespace-nowrap"
->
-  ล้างตัวกรอง
-</button>
 
+        <button
+          type="button"
+          onClick={resetFilters}
+          className="px-4 py-2 rounded-xl text-sm font-semibold bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all whitespace-nowrap"
+        >
+          ล้างตัวกรอง
+        </button>
       </div>
 
       {/* --- Table --- */}
@@ -250,6 +340,11 @@ export default function TasksPage() {
                 <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">รายละเอียดงาน</th>
                 <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">ลูกค้า</th>
                 <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">ผู้รับผิดชอบ / กำหนดส่ง</th>
+
+                {/* ✅ NEW columns */}
+                <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">วันที่สร้าง</th>
+                <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">อัปเดตล่าสุด</th>
+
                 <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">สถานะ</th>
                 <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase text-right">ดำเนินการ</th>
               </tr>
@@ -258,18 +353,22 @@ export default function TasksPage() {
             <tbody className="divide-y divide-slate-50">
               {filteredTasks.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-slate-400 text-sm">ไม่พบรายการงานที่ค้นหา</td>
+                  <td colSpan={7} className="px-6 py-12 text-center text-slate-400 text-sm">
+                    ไม่พบรายการงานที่ค้นหา
+                  </td>
                 </tr>
               ) : (
                 filteredTasks.map((task: any) => {
                   const overdue = isOverdue(task.task_date, task.status);
+
                   return (
                     <tr key={task.task_id} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-6 py-4">
                         <div className="font-semibold text-slate-700 text-sm">{task.title}</div>
                         {task.project_name && (
                           <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-                            {task.project_type ? `${task.project_type} · ` : ''}{task.project_name}
+                            {task.project_type ? `${task.project_type} · ` : ''}
+                            {task.project_name}
                           </div>
                         )}
                         <div className="text-xs text-slate-400 font-normal mt-0.5 line-clamp-1">{task.description || '-'}</div>
@@ -297,6 +396,16 @@ export default function TasksPage() {
                             )}
                           </div>
                         </div>
+                      </td>
+
+                      {/* ✅ NEW: created_at */}
+                      <td className="px-6 py-4">
+                        <div className="text-sm font-medium text-slate-600">{formatDateTimeTH(task.created_at)}</div>
+                      </td>
+
+                      {/* ✅ NEW: updated_at */}
+                      <td className="px-6 py-4">
+                        <div className="text-sm font-medium text-slate-600">{formatDateTimeTH(task.updated_at)}</div>
                       </td>
 
                       <td className="px-6 py-4">
@@ -331,7 +440,10 @@ export default function TasksPage() {
           customers={customers}
           users={users}
           onClose={() => setShowAddModal(false)}
-          onSuccess={() => { setShowAddModal(false); fetchData(); }}
+          onSuccess={() => {
+            setShowAddModal(false);
+            fetchData();
+          }}
         />
       )}
     </div>
@@ -347,7 +459,7 @@ function AddTaskModal({ user, customers, users, onClose, onSuccess }: any) {
   const [projectForm, setProjectForm] = useState({
     project_name: '',
     project_type: '',
-    description: '',
+    description: ''
   });
   const [projectError, setProjectError] = useState('');
 
@@ -359,14 +471,13 @@ function AddTaskModal({ user, customers, users, onClose, onSuccess }: any) {
     description: '',
     task_date: new Date().toISOString().split('T')[0],
     status: 'pending',
-    department: user.department,
+    department: user.department
   });
 
   useEffect(() => {
     const customerId = String(formData.customer_id || '');
     if (!customerId) {
       setProjects([]);
-      // reset project when no customer
       setFormData((prev: any) => ({ ...prev, project_id: '' }));
       return;
     }
@@ -375,7 +486,7 @@ function AddTaskModal({ user, customers, users, onClose, onSuccess }: any) {
         setProjectsLoading(true);
         const res = await fetch(`/api/projects?customer_id=${encodeURIComponent(customerId)}`, {
           cache: 'no-store',
-          credentials: 'include',
+          credentials: 'include'
         });
         const data = await res.json();
         setProjects(data.projects || []);
@@ -405,8 +516,8 @@ function AddTaskModal({ user, customers, users, onClose, onSuccess }: any) {
           project_name: projectForm.project_name.trim(),
           project_type: projectForm.project_type.trim() || null,
           description: projectForm.description.trim() || null,
-          department: user.department,
-        }),
+          department: user.department
+        })
       });
 
       const data = await res.json();
@@ -415,15 +526,13 @@ function AddTaskModal({ user, customers, users, onClose, onSuccess }: any) {
         return;
       }
 
-      // refresh projects list
       const listRes = await fetch(`/api/projects?customer_id=${encodeURIComponent(String(formData.customer_id))}`, {
         cache: 'no-store',
-        credentials: 'include',
+        credentials: 'include'
       });
       const listData = await listRes.json();
       setProjects(listData.projects || []);
 
-      // auto select created project
       if (data?.project?.project_id) {
         setFormData((prev: any) => ({ ...prev, project_id: String(data.project.project_id) }));
       }
@@ -447,7 +556,7 @@ function AddTaskModal({ user, customers, users, onClose, onSuccess }: any) {
         body: JSON.stringify({
           ...formData,
           customer_id: formData.customer_id || null,
-          project_id: formData.project_id || null,
+          project_id: formData.project_id || null
         })
       });
       if (response.ok) onSuccess();
@@ -492,7 +601,9 @@ function AddTaskModal({ user, customers, users, onClose, onSuccess }: any) {
                   className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none"
                 >
                   {users.map((u: any) => (
-                    <option key={u.user_id} value={u.user_id}>{u.full_name}</option>
+                    <option key={u.user_id} value={u.user_id}>
+                      {u.full_name}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -517,7 +628,9 @@ function AddTaskModal({ user, customers, users, onClose, onSuccess }: any) {
               >
                 <option value="">ไม่ได้ระบุลูกค้า</option>
                 {customers.map((c: any) => (
-                  <option key={c.customer_id} value={c.customer_id}>{c.company_name}</option>
+                  <option key={c.customer_id} value={c.customer_id}>
+                    {c.company_name}
+                  </option>
                 ))}
               </select>
             </div>
@@ -533,7 +646,8 @@ function AddTaskModal({ user, customers, users, onClose, onSuccess }: any) {
                 <option value="">ไม่ระบุโปรเจค</option>
                 {projects.map((p: any) => (
                   <option key={p.project_id} value={p.project_id}>
-                    {p.project_type ? `${p.project_type} · ` : ''}{p.project_name}
+                    {p.project_type ? `${p.project_type} · ` : ''}
+                    {p.project_name}
                   </option>
                 ))}
               </select>
@@ -549,9 +663,7 @@ function AddTaskModal({ user, customers, users, onClose, onSuccess }: any) {
                 </button>
               </div>
 
-              {!formData.customer_id && (
-                <div className="mt-1 text-[11px] text-slate-400">* เลือกลูกค้าก่อน เพื่อให้ระบบดึงรายชื่อโปรเจคของลูกค้านั้น</div>
-              )}
+              {!formData.customer_id && <div className="mt-1 text-[11px] text-slate-400">* เลือกลูกค้าก่อน เพื่อให้ระบบดึงรายชื่อโปรเจคของลูกค้านั้น</div>}
               {formData.customer_id && !projectsLoading && projects.length === 0 && (
                 <div className="mt-1 text-[11px] text-slate-400">ลูกค้ารายนี้ยังไม่มีโปรเจค (คุณสามารถสร้าง Task แบบไม่ระบุโปรเจคได้)</div>
               )}
@@ -577,10 +689,7 @@ function AddTaskModal({ user, customers, users, onClose, onSuccess }: any) {
             >
               ยกเลิก
             </button>
-            <button
-              type="submit"
-              className="flex-[2] py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 shadow-md shadow-blue-100 transition-all"
-            >
+            <button type="submit" className="flex-[2] py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 shadow-md shadow-blue-100 transition-all">
               บันทึกงาน
             </button>
           </div>
@@ -594,19 +703,13 @@ function AddTaskModal({ user, customers, users, onClose, onSuccess }: any) {
                       <h4 className="text-lg font-bold text-slate-800">สร้างโปรเจคใหม่</h4>
                       <p className="text-xs text-slate-400 mt-0.5">ผูกกับลูกค้าที่คุณเลือกไว้</p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setShowCreateProject(false)}
-                      className="p-2 hover:bg-slate-50 rounded-full text-slate-400"
-                    >
+                    <button type="button" onClick={() => setShowCreateProject(false)} className="p-2 hover:bg-slate-50 rounded-full text-slate-400">
                       <Icons.Close />
                     </button>
                   </div>
 
                   {projectError && (
-                    <div className="mt-4 bg-red-50 border border-red-100 text-red-700 px-4 py-3 rounded-xl text-sm">
-                      {projectError}
-                    </div>
+                    <div className="mt-4 bg-red-50 border border-red-100 text-red-700 px-4 py-3 rounded-xl text-sm">{projectError}</div>
                   )}
 
                   <div className="mt-4 space-y-3">
@@ -663,7 +766,6 @@ function AddTaskModal({ user, customers, users, onClose, onSuccess }: any) {
               </div>
             </div>
           )}
-
         </form>
       </div>
     </div>
