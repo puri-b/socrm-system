@@ -32,35 +32,38 @@ export default function TasksPage() {
   const [filteredTasks, setFilteredTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+
   const [statusFilter, setStatusFilter] = useState('all');
   const [assignedFilter, setAssignedFilter] = useState('all');
+  const [projectFilter, setProjectFilter] = useState('all');
+  const resetFilters = () => {
+        setStatusFilter('all');
+        setAssignedFilter('all');
+        setCustomerFilter('all');
+        setProjectFilter('all');
+};
+
+  // ✅ NEW: customer filter
+  const [customerFilter, setCustomerFilter] = useState('all');
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
     if (userData) {
-      const u = JSON.parse(userData);
-      setUser(u);
-
-      // ✅ UX: ระดับ User เห็นงานของตัวเองเป็นค่าเริ่มต้น (ยังเปลี่ยนตัวกรองได้)
-      if (u?.role === 'user') {
-        setAssignedFilter(String(u.user_id));
-      }
-
+      setUser(JSON.parse(userData));
       fetchData();
     }
   }, []);
 
   useEffect(() => {
     filterTasks();
-  }, [tasks, statusFilter, assignedFilter]);
+  }, [tasks, statusFilter, assignedFilter, projectFilter, customerFilter]);
 
   const fetchData = async () => {
     try {
       const [tasksRes, customersRes, usersRes] = await Promise.all([
-        // ✅ กัน cache + ให้แน่ใจว่า cookie (token) ถูกส่งไปเสมอ
-        fetch('/api/tasks', { cache: 'no-store', credentials: 'include' }),
-        fetch('/api/customers', { cache: 'no-store', credentials: 'include' }),
-        fetch('/api/users', { cache: 'no-store', credentials: 'include' })
+        fetch('/api/tasks'),
+        fetch('/api/customers'),
+        fetch('/api/users')
       ]);
       const tasksData = await tasksRes.json();
       const customersData = await customersRes.json();
@@ -77,11 +80,21 @@ export default function TasksPage() {
 
   const filterTasks = () => {
     let filtered = tasks;
+
     if (statusFilter !== 'all') filtered = filtered.filter(t => t.status === statusFilter);
-    if (assignedFilter !== 'all') {
-      const targetId = Number(assignedFilter);
-      filtered = filtered.filter(t => Number(t.assigned_to) === targetId);
+    if (assignedFilter !== 'all') filtered = filtered.filter(t => t.assigned_to === parseInt(assignedFilter));
+
+    // ✅ NEW: customer filter
+    if (customerFilter !== 'all') filtered = filtered.filter(t => Number(t.customer_id) === Number(customerFilter));
+
+    if (projectFilter !== 'all') {
+      if (projectFilter === 'none') {
+        filtered = filtered.filter(t => !t.project_id);
+      } else {
+        filtered = filtered.filter(t => Number(t.project_id) === Number(projectFilter));
+      }
     }
+
     setFilteredTasks(filtered);
   };
 
@@ -109,15 +122,15 @@ export default function TasksPage() {
 
   const getStatusStyle = (status: string) => {
     const styles: any = {
-      'pending': 'bg-slate-100 text-slate-600 border-slate-200',
-      'in_progress': 'bg-blue-50 text-blue-600 border-blue-100',
-      'completed': 'bg-emerald-50 text-emerald-600 border-emerald-100'
+      pending: 'bg-slate-100 text-slate-600 border-slate-200',
+      in_progress: 'bg-blue-50 text-blue-600 border-blue-100',
+      completed: 'bg-emerald-50 text-emerald-600 border-emerald-100'
     };
     return styles[status] || 'bg-slate-50 text-slate-600 border-slate-100';
   };
 
   const getStatusText = (status: string) => {
-    const texts: any = { 'pending': 'รอดำเนินการ', 'in_progress': 'กำลังทำ', 'completed': 'เสร็จสิ้น' };
+    const texts: any = { pending: 'รอดำเนินการ', in_progress: 'กำลังทำ', completed: 'เสร็จสิ้น' };
     return texts[status] || status;
   };
 
@@ -130,7 +143,7 @@ export default function TasksPage() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 pb-20 px-4 md:px-0">
-      
+
       {/* --- Header --- */}
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
@@ -155,18 +168,77 @@ export default function TasksPage() {
           <Icons.Filter />
           <span className="text-xs font-semibold uppercase tracking-wider">ตัวกรอง</span>
         </div>
-        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3 w-full">
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-medium text-slate-600 focus:ring-2 focus:ring-blue-500 outline-none">
+
+        {/* ✅ เปลี่ยนเป็น md:grid-cols-4 เพื่อเพิ่ม filter ลูกค้า */}
+        <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-3 w-full">
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-medium text-slate-600 focus:ring-2 focus:ring-blue-500 outline-none"
+          >
             <option value="all">สถานะทั้งหมด</option>
             <option value="pending">รอดำเนินการ</option>
             <option value="in_progress">กำลังดำเนินการ</option>
             <option value="completed">เสร็จสิ้นแล้ว</option>
           </select>
-          <select value={assignedFilter} onChange={(e) => setAssignedFilter(e.target.value)} className="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-medium text-slate-600 focus:ring-2 focus:ring-blue-500 outline-none">
+
+          <select
+            value={assignedFilter}
+            onChange={(e) => setAssignedFilter(e.target.value)}
+            className="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-medium text-slate-600 focus:ring-2 focus:ring-blue-500 outline-none"
+          >
             <option value="all">ผู้รับผิดชอบทั้งหมด</option>
-            {users.map(u => <option key={u.user_id} value={u.user_id}>{u.full_name}</option>)}
+            {users.map((u: any) => (
+              <option key={u.user_id} value={u.user_id}>
+                {u.full_name}
+              </option>
+            ))}
+          </select>
+
+          {/* ✅ NEW: Customer Filter */}
+          <select
+            value={customerFilter}
+            onChange={(e) => setCustomerFilter(e.target.value)}
+            className="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-medium text-slate-600 focus:ring-2 focus:ring-blue-500 outline-none"
+          >
+            <option value="all">ลูกค้าทั้งหมด</option>
+            {customers.map((c: any) => (
+              <option key={c.customer_id} value={c.customer_id}>
+                {c.company_name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={projectFilter}
+            onChange={(e) => setProjectFilter(e.target.value)}
+            className="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-medium text-slate-600 focus:ring-2 focus:ring-blue-500 outline-none"
+          >
+            <option value="all">โปรเจคทั้งหมด</option>
+            <option value="none">ไม่ระบุโปรเจค</option>
+            {Array.from(
+              new Map(
+                tasks
+                  .filter((t: any) => t.project_id)
+                  .map((t: any) => [String(t.project_id), { project_id: t.project_id, project_name: t.project_name }])
+              ).values()
+            ).map((p: any) => (
+              <option key={p.project_id} value={p.project_id}>
+                {p.project_name || `Project #${p.project_id}`}
+              </option>
+            ))}
           </select>
         </div>
+        <button
+  type="button"
+  onClick={resetFilters}
+  className="px-4 py-2 rounded-xl text-sm font-semibold
+             bg-white border border-slate-200 text-slate-600
+             hover:bg-slate-50 transition-all whitespace-nowrap"
+>
+  ล้างตัวกรอง
+</button>
+
       </div>
 
       {/* --- Table --- */}
@@ -182,27 +254,37 @@ export default function TasksPage() {
                 <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase text-right">ดำเนินการ</th>
               </tr>
             </thead>
+
             <tbody className="divide-y divide-slate-50">
               {filteredTasks.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-12 text-center text-slate-400 text-sm">ไม่พบรายการงานที่ค้นหา</td>
                 </tr>
               ) : (
-                filteredTasks.map((task) => {
+                filteredTasks.map((task: any) => {
                   const overdue = isOverdue(task.task_date, task.status);
                   return (
                     <tr key={task.task_id} className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-6 py-4">
                         <div className="font-semibold text-slate-700 text-sm">{task.title}</div>
+                        {task.project_name && (
+                          <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                            {task.project_type ? `${task.project_type} · ` : ''}{task.project_name}
+                          </div>
+                        )}
                         <div className="text-xs text-slate-400 font-normal mt-0.5 line-clamp-1">{task.description || '-'}</div>
                       </td>
+
                       <td className="px-6 py-4">
                         <span className="text-sm font-medium text-slate-600">{task.company_name || '—'}</span>
                       </td>
+
                       <td className="px-6 py-4">
                         <div className="flex flex-col gap-0.5">
                           <div className="text-slate-600 font-medium text-xs flex items-center gap-1.5">
-                            <div className="w-5 h-5 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-[9px] font-bold text-slate-400">{task.assigned_to_name?.charAt(0)}</div>
+                            <div className="w-5 h-5 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-[9px] font-bold text-slate-400">
+                              {task.assigned_to_name?.charAt(0)}
+                            </div>
                             {task.assigned_to_name}
                           </div>
                           <div className={`text-[11px] font-medium flex items-center gap-1 mt-1 ${overdue ? 'text-red-500 font-semibold' : 'text-slate-400'}`}>
@@ -216,11 +298,13 @@ export default function TasksPage() {
                           </div>
                         </div>
                       </td>
+
                       <td className="px-6 py-4">
                         <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold border ${getStatusStyle(task.status)}`}>
                           {getStatusText(task.status)}
                         </span>
                       </td>
+
                       <td className="px-6 py-4 text-right">
                         <select
                           value={task.status}
@@ -243,7 +327,9 @@ export default function TasksPage() {
 
       {showAddModal && (
         <AddTaskModal
-          user={user} customers={customers} users={users}
+          user={user}
+          customers={customers}
+          users={users}
           onClose={() => setShowAddModal(false)}
           onSuccess={() => { setShowAddModal(false); fetchData(); }}
         />
@@ -254,10 +340,103 @@ export default function TasksPage() {
 
 // --- Modal ---
 function AddTaskModal({ user, customers, users, onClose, onSuccess }: any) {
-  const [formData, setFormData] = useState({
-    customer_id: '', assigned_to: user.user_id, title: '', description: '',
-    task_date: new Date().toISOString().split('T')[0], status: 'pending', department: user.department
+  const [projects, setProjects] = useState<any[]>([]);
+  const [projectsLoading, setProjectsLoading] = useState(false);
+  const [showCreateProject, setShowCreateProject] = useState(false);
+  const [creatingProject, setCreatingProject] = useState(false);
+  const [projectForm, setProjectForm] = useState({
+    project_name: '',
+    project_type: '',
+    description: '',
   });
+  const [projectError, setProjectError] = useState('');
+
+  const [formData, setFormData] = useState({
+    customer_id: '',
+    project_id: '',
+    assigned_to: user.user_id,
+    title: '',
+    description: '',
+    task_date: new Date().toISOString().split('T')[0],
+    status: 'pending',
+    department: user.department,
+  });
+
+  useEffect(() => {
+    const customerId = String(formData.customer_id || '');
+    if (!customerId) {
+      setProjects([]);
+      // reset project when no customer
+      setFormData((prev: any) => ({ ...prev, project_id: '' }));
+      return;
+    }
+    (async () => {
+      try {
+        setProjectsLoading(true);
+        const res = await fetch(`/api/projects?customer_id=${encodeURIComponent(customerId)}`, {
+          cache: 'no-store',
+          credentials: 'include',
+        });
+        const data = await res.json();
+        setProjects(data.projects || []);
+      } catch (e) {
+        console.error(e);
+        setProjects([]);
+      } finally {
+        setProjectsLoading(false);
+      }
+    })();
+  }, [formData.customer_id]);
+
+  const createProject = async () => {
+    if (!formData.customer_id) return;
+
+    setCreatingProject(true);
+    setProjectError('');
+
+    try {
+      const res = await fetch('/api/projects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        cache: 'no-store',
+        body: JSON.stringify({
+          customer_id: Number(formData.customer_id),
+          project_name: projectForm.project_name.trim(),
+          project_type: projectForm.project_type.trim() || null,
+          description: projectForm.description.trim() || null,
+          department: user.department,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setProjectError(data?.error || 'สร้างโปรเจคไม่สำเร็จ');
+        return;
+      }
+
+      // refresh projects list
+      const listRes = await fetch(`/api/projects?customer_id=${encodeURIComponent(String(formData.customer_id))}`, {
+        cache: 'no-store',
+        credentials: 'include',
+      });
+      const listData = await listRes.json();
+      setProjects(listData.projects || []);
+
+      // auto select created project
+      if (data?.project?.project_id) {
+        setFormData((prev: any) => ({ ...prev, project_id: String(data.project.project_id) }));
+      }
+
+      setShowCreateProject(false);
+      setProjectForm({ project_name: '', project_type: '', description: '' });
+    } catch (e) {
+      console.error(e);
+      setProjectError('เชื่อมต่อไม่ได้ กรุณาลองใหม่');
+    } finally {
+      setCreatingProject(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -265,10 +444,16 @@ function AddTaskModal({ user, customers, users, onClose, onSuccess }: any) {
       const response = await fetch('/api/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          ...formData,
+          customer_id: formData.customer_id || null,
+          project_id: formData.project_id || null,
+        })
       });
       if (response.ok) onSuccess();
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   return (
@@ -288,40 +473,197 @@ function AddTaskModal({ user, customers, users, onClose, onSuccess }: any) {
           <div className="space-y-4">
             <div>
               <label className="block text-xs font-semibold text-slate-500 mb-1.5 ml-1">ชื่อโครงการ / หัวข้องาน *</label>
-              <input type="text" required value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none" placeholder="เช่น ติดตามเสนอราคา..." />
+              <input
+                type="text"
+                required
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none"
+                placeholder="เช่น ติดตามเสนอราคา..."
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-500 mb-1.5 ml-1">ผู้รับผิดชอบ</label>
-                <select value={formData.assigned_to} onChange={(e) => setFormData({ ...formData, assigned_to: parseInt(e.target.value) })} className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none">
-                  {users.map((u: any) => <option key={u.user_id} value={u.user_id}>{u.full_name}</option>)}
+                <select
+                  value={formData.assigned_to}
+                  onChange={(e) => setFormData({ ...formData, assigned_to: parseInt(e.target.value) })}
+                  className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none"
+                >
+                  {users.map((u: any) => (
+                    <option key={u.user_id} value={u.user_id}>{u.full_name}</option>
+                  ))}
                 </select>
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-500 mb-1.5 ml-1">กำหนดส่ง</label>
-                <input type="date" required value={formData.task_date} onChange={(e) => setFormData({ ...formData, task_date: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none" />
+                <input
+                  type="date"
+                  required
+                  value={formData.task_date}
+                  onChange={(e) => setFormData({ ...formData, task_date: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none"
+                />
               </div>
             </div>
 
             <div>
               <label className="block text-xs font-semibold text-slate-500 mb-1.5 ml-1">ลูกค้า</label>
-              <select value={formData.customer_id} onChange={(e) => setFormData({ ...formData, customer_id: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none">
+              <select
+                value={formData.customer_id}
+                onChange={(e) => setFormData({ ...formData, customer_id: e.target.value })}
+                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none"
+              >
                 <option value="">ไม่ได้ระบุลูกค้า</option>
-                {customers.map((c: any) => <option key={c.customer_id} value={c.customer_id}>{c.company_name}</option>)}
+                {customers.map((c: any) => (
+                  <option key={c.customer_id} value={c.customer_id}>{c.company_name}</option>
+                ))}
               </select>
             </div>
 
             <div>
+              <label className="block text-xs font-semibold text-slate-500 mb-1.5 ml-1">โปรเจค (ไม่บังคับ)</label>
+              <select
+                value={formData.project_id}
+                onChange={(e) => setFormData({ ...formData, project_id: e.target.value })}
+                disabled={!formData.customer_id || projectsLoading}
+                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none disabled:opacity-60"
+              >
+                <option value="">ไม่ระบุโปรเจค</option>
+                {projects.map((p: any) => (
+                  <option key={p.project_id} value={p.project_id}>
+                    {p.project_type ? `${p.project_type} · ` : ''}{p.project_name}
+                  </option>
+                ))}
+              </select>
+
+              <div className="mt-2 flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={!formData.customer_id}
+                  onClick={() => setShowCreateProject(true)}
+                  className="px-3 py-2 rounded-xl text-xs font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                >
+                  + สร้างโปรเจคใหม่
+                </button>
+              </div>
+
+              {!formData.customer_id && (
+                <div className="mt-1 text-[11px] text-slate-400">* เลือกลูกค้าก่อน เพื่อให้ระบบดึงรายชื่อโปรเจคของลูกค้านั้น</div>
+              )}
+              {formData.customer_id && !projectsLoading && projects.length === 0 && (
+                <div className="mt-1 text-[11px] text-slate-400">ลูกค้ารายนี้ยังไม่มีโปรเจค (คุณสามารถสร้าง Task แบบไม่ระบุโปรเจคได้)</div>
+              )}
+            </div>
+
+            <div>
               <label className="block text-xs font-semibold text-slate-500 mb-1.5 ml-1">รายละเอียด</label>
-              <textarea rows={3} value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none resize-none" placeholder="ข้อมูลเพิ่มเติม..." />
+              <textarea
+                rows={3}
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none resize-none"
+                placeholder="ข้อมูลเพิ่มเติม..."
+              />
             </div>
           </div>
 
           <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold text-slate-400 hover:bg-slate-50 transition-all">ยกเลิก</button>
-            <button type="submit" className="flex-[2] py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 shadow-md shadow-blue-100 transition-all">บันทึกงาน</button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold text-slate-400 hover:bg-slate-50 transition-all"
+            >
+              ยกเลิก
+            </button>
+            <button
+              type="submit"
+              className="flex-[2] py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 shadow-md shadow-blue-100 transition-all"
+            >
+              บันทึกงาน
+            </button>
           </div>
+
+          {showCreateProject && (
+            <div className="fixed inset-0 z-[60] bg-slate-900/40 backdrop-blur-[2px] flex items-center justify-center p-4">
+              <div className="bg-white w-full max-w-lg rounded-[1.25rem] shadow-xl overflow-hidden border border-slate-100">
+                <div className="p-6">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h4 className="text-lg font-bold text-slate-800">สร้างโปรเจคใหม่</h4>
+                      <p className="text-xs text-slate-400 mt-0.5">ผูกกับลูกค้าที่คุณเลือกไว้</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowCreateProject(false)}
+                      className="p-2 hover:bg-slate-50 rounded-full text-slate-400"
+                    >
+                      <Icons.Close />
+                    </button>
+                  </div>
+
+                  {projectError && (
+                    <div className="mt-4 bg-red-50 border border-red-100 text-red-700 px-4 py-3 rounded-xl text-sm">
+                      {projectError}
+                    </div>
+                  )}
+
+                  <div className="mt-4 space-y-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-500 mb-1.5 ml-1">ชื่อโปรเจค *</label>
+                      <input
+                        value={projectForm.project_name}
+                        onChange={(e) => setProjectForm({ ...projectForm, project_name: e.target.value })}
+                        className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="เช่น OCR Project - Phase 1"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-500 mb-1.5 ml-1">ประเภทโปรเจค</label>
+                      <input
+                        value={projectForm.project_type}
+                        onChange={(e) => setProjectForm({ ...projectForm, project_type: e.target.value })}
+                        className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="เช่น OCR / Scan / EDMS"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-500 mb-1.5 ml-1">รายละเอียด</label>
+                      <textarea
+                        rows={3}
+                        value={projectForm.description}
+                        onChange={(e) => setProjectForm({ ...projectForm, description: e.target.value })}
+                        className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none resize-none"
+                        placeholder="โน้ตเพิ่มเติม..."
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-5 flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowCreateProject(false)}
+                      className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold text-slate-400 hover:bg-slate-50 transition-all"
+                    >
+                      ยกเลิก
+                    </button>
+                    <button
+                      type="button"
+                      disabled={creatingProject || !projectForm.project_name.trim()}
+                      onClick={createProject}
+                      className="flex-[2] py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 shadow-md shadow-blue-100 transition-all disabled:bg-slate-300"
+                    >
+                      {creatingProject ? 'กำลังสร้าง...' : 'สร้างโปรเจค'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
         </form>
       </div>
     </div>
