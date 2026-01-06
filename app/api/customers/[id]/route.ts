@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query } from '@/lib/db';
+import { query, getClient } from '@/lib/db';
 import { getUserFromRequest, canAccessDepartment } from '@/lib/auth';
 
 export async function PUT(
@@ -14,8 +14,13 @@ export async function PUT(
 
     const customerId = params.id;
     const data = await request.json();
-    
-    // แปลงค่าว่างเป็น null สำหรับ numeric และ date fields
+
+    const incomingServices = Array.isArray(data.services)
+      ? data.services
+      : Array.isArray(data.selectedServices)
+        ? data.selectedServices
+        : [];
+
     const cleanData = {
       company_name: data.company_name,
       email: data.email || null,
@@ -35,10 +40,9 @@ export async function PUT(
       pain_points: data.pain_points || null,
       contract_duration: data.contract_duration || null,
       contract_start_date: data.contract_start_date || null,
-      contract_end_date: data.contract_end_date || null
+      contract_end_date: data.contract_end_date || null,
     };
 
-    // ตรวจสอบว่าลูกค้ามีอยู่และมีสิทธิ์แก้ไข
     const existingCustomer = await query(
       'SELECT * FROM x_socrm.customers WHERE customer_id = $1',
       [customerId]
@@ -53,56 +57,85 @@ export async function PUT(
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    // อัพเดตข้อมูล
-    const result = await query(
-      `UPDATE x_socrm.customers SET
-        company_name = $1,
-        email = $2,
-        phone = $3,
-        location = $4,
-        registration_info = $5,
-        business_type = $6,
-        budget = $7,
-        contact_person = $8,
-        service_interested = $9,
-        lead_source = $10,
-        search_keyword = $11,
-        is_quality_lead = $12,
-        sales_person_id = $13,
-        lead_status = $14,
-        contract_value = $15,
-        pain_points = $16,
-        contract_duration = $17,
-        contract_start_date = $18,
-        contract_end_date = $19,
-        updated_at = CURRENT_TIMESTAMP
-      WHERE customer_id = $20
-      RETURNING *`,
-      [
-        cleanData.company_name,
-        cleanData.email,
-        cleanData.phone,
-        cleanData.location,
-        cleanData.registration_info,
-        cleanData.business_type,
-        cleanData.budget,
-        cleanData.contact_person,
-        cleanData.service_interested,
-        cleanData.lead_source,
-        cleanData.search_keyword,
-        cleanData.is_quality_lead,
-        cleanData.sales_person_id,
-        cleanData.lead_status,
-        cleanData.contract_value,
-        cleanData.pain_points,
-        cleanData.contract_duration,
-        cleanData.contract_start_date,
-        cleanData.contract_end_date,
-        customerId
-      ]
-    );
+    const client = await getClient();
+    try {
+      await client.query('BEGIN');
 
-    return NextResponse.json({ success: true, customer: result.rows[0] });
+      const result = await client.query(
+        `UPDATE x_socrm.customers SET
+          company_name = $1,
+          email = $2,
+          phone = $3,
+          location = $4,
+          registration_info = $5,
+          business_type = $6,
+          budget = $7,
+          contact_person = $8,
+          service_interested = $9,
+          lead_source = $10,
+          search_keyword = $11,
+          is_quality_lead = $12,
+          sales_person_id = $13,
+          lead_status = $14,
+          contract_value = $15,
+          pain_points = $16,
+          contract_duration = $17,
+          contract_start_date = $18,
+          contract_end_date = $19,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE customer_id = $20
+        RETURNING *`,
+        [
+          cleanData.company_name,
+          cleanData.email,
+          cleanData.phone,
+          cleanData.location,
+          cleanData.registration_info,
+          cleanData.business_type,
+          cleanData.budget,
+          cleanData.contact_person,
+          cleanData.service_interested,
+          cleanData.lead_source,
+          cleanData.search_keyword,
+          cleanData.is_quality_lead,
+          cleanData.sales_person_id,
+          cleanData.lead_status,
+          cleanData.contract_value,
+          cleanData.pain_points,
+          cleanData.contract_duration,
+          cleanData.contract_start_date,
+          cleanData.contract_end_date,
+          customerId,
+        ]
+      );
+
+      // 1) ล้างบริการเก่า
+      await client.query('DELETE FROM x_socrm.customer_services WHERE customer_id = $1', [customerId]);
+
+      // 2) Insert บริการใหม่
+      const svcRows = incomingServices
+        .filter((s: any) => s && s.service_id)
+        .map((s: any) => ({
+          service_id: Number(s.service_id),
+          quantity: Math.max(1, Number(s.quantity ?? 1)),
+        }));
+
+      for (const s of svcRows) {
+        await client.query(
+          `INSERT INTO x_socrm.customer_services (customer_id, service_id, quantity)
+           VALUES ($1, $2, $3)`,
+          [customerId, s.service_id, s.quantity]
+        );
+      }
+
+      await client.query('COMMIT');
+      return NextResponse.json({ success: true, customer: result.rows[0] });
+    } catch (txErr) {
+      await client.query('ROLLBACK');
+      throw txErr;
+    } finally {
+      client.release();
+    }
   } catch (error) {
     console.error('Update customer error:', error);
     return NextResponse.json({ error: 'เกิดข้อผิดพลาดในการอัพเดต' }, { status: 500 });
@@ -121,7 +154,6 @@ export async function DELETE(
 
     const customerId = params.id;
 
-    // ตรวจสอบว่าลูกค้ามีอยู่และมีสิทธิ์ลบ
     const existingCustomer = await query(
       'SELECT * FROM x_socrm.customers WHERE customer_id = $1',
       [customerId]
@@ -136,11 +168,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    // ลบข้อมูล (soft delete หรือ hard delete ตามต้องการ)
-    await query(
-      'DELETE FROM x_socrm.customers WHERE customer_id = $1',
-      [customerId]
-    );
+    await query('DELETE FROM x_socrm.customers WHERE customer_id = $1', [customerId]);
 
     return NextResponse.json({ success: true, message: 'ลบข้อมูลสำเร็จ' });
   } catch (error) {

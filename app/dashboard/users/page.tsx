@@ -7,81 +7,39 @@ import { useEffect, useMemo, useState } from 'react';
 // -----------------------------
 const Icons = {
   Plus: () => (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <line x1="12" y1="5" x2="12" y2="19" />
       <line x1="5" y1="12" x2="19" y2="12" />
     </svg>
   ),
   Filter: () => (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
     </svg>
   ),
   Search: () => (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <circle cx="11" cy="11" r="8" />
       <line x1="21" y1="21" x2="16.65" y2="16.65" />
     </svg>
   ),
   Close: () => (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <line x1="18" y1="6" x2="6" y2="18" />
       <line x1="6" y1="6" x2="18" y2="18" />
     </svg>
   ),
   Shield: () => (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    </svg>
+  ),
+  Key: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M15 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10Z" />
+      <path d="M10 14 2 22" />
+      <path d="M7 17h.01" />
+      <path d="M11 13h.01" />
     </svg>
   ),
 };
@@ -104,6 +62,10 @@ export default function UsersPage() {
   const [loading, setLoading] = useState(true);
 
   const [showAddModal, setShowAddModal] = useState(false);
+
+  // ✅ Change Password Modal state
+  const [showChangePwModal, setShowChangePwModal] = useState(false);
+  const [pwTargetUser, setPwTargetUser] = useState<User | null>(null);
 
   // filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -250,11 +212,13 @@ export default function UsersPage() {
           <ul className="text-sm text-slate-600 space-y-1">
             <li>✓ Admin สามารถสร้างผู้ใช้ทุกระดับ (User, Manager, Admin) ได้</li>
             <li>✓ Admin สามารถเห็นผู้ใช้ทุกแผนกได้</li>
+            <li>✓ Admin สามารถรีเซ็ตรหัสผ่านให้ผู้ใช้ได้</li>
           </ul>
         ) : (
           <ul className="text-sm text-slate-600 space-y-1">
             <li>✓ Manager สามารถสร้างผู้ใช้ระดับ User ในแผนกของตนเองเท่านั้น</li>
             <li>✓ Manager เห็นเฉพาะผู้ใช้ในแผนกเดียวกัน</li>
+            <li>✓ Manager สามารถเปลี่ยนรหัสผ่านให้ผู้ใช้ในแผนกตนเองได้</li>
           </ul>
         )}
       </div>
@@ -348,12 +312,14 @@ export default function UsersPage() {
                 <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">สิทธิ์</th>
                 <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">สถานะ</th>
                 <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">วันที่สร้าง</th>
+                <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase text-right">การทำงาน</th>
               </tr>
             </thead>
+
             <tbody className="divide-y divide-slate-50">
               {filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-slate-400 text-sm">
+                  <td colSpan={7} className="px-6 py-12 text-center text-slate-400 text-sm">
                     ไม่พบผู้ใช้งาน
                   </td>
                 </tr>
@@ -398,6 +364,27 @@ export default function UsersPage() {
                       <td className="px-6 py-4 text-sm text-slate-700">
                         {u.created_at ? new Date(u.created_at).toLocaleDateString('th-TH') : '—'}
                       </td>
+
+                      {/* ✅ Actions */}
+                      <td className="px-6 py-4">
+                        <div className="flex items-center justify-end gap-2">
+                          {(currentUser?.role === 'admin' || Number(currentUser?.user_id) === Number(u.user_id)) && (
+                            <button
+                              onClick={() => {
+                                setPwTargetUser(u);
+                                setShowChangePwModal(true);
+                              }}
+                              className="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition"
+                              title="เปลี่ยนรหัสผ่าน"
+                            >
+                              <span className="text-slate-500">
+                                <Icons.Key />
+                              </span>
+                              เปลี่ยนรหัสผ่าน
+                            </button>
+                          )}
+                        </div>
+                      </td>
                     </tr>
                   );
                 })
@@ -418,6 +405,25 @@ export default function UsersPage() {
           onSuccess={() => {
             setShowAddModal(false);
             fetchUsers();
+          }}
+        />
+      )}
+
+      {/* -----------------------------
+          Change Password Modal
+      ----------------------------- */}
+      {showChangePwModal && pwTargetUser && (
+        <ChangePasswordModal
+          currentUser={currentUser}
+          targetUser={pwTargetUser}
+          onClose={() => {
+            setShowChangePwModal(false);
+            setPwTargetUser(null);
+          }}
+          onSuccess={() => {
+            setShowChangePwModal(false);
+            setPwTargetUser(null);
+            alert('เปลี่ยนรหัสผ่านสำเร็จ');
           }}
         />
       )}
@@ -584,9 +590,7 @@ function AddUserModal({
                 onChange={(e) => setFormData({ ...formData, department: e.target.value })}
                 disabled={!isAdmin}
                 className={`w-full px-4 py-2.5 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 ${
-                  isAdmin
-                    ? 'bg-slate-50 border-none text-slate-700'
-                    : 'bg-slate-100 border-none text-slate-500 cursor-not-allowed'
+                  isAdmin ? 'bg-slate-50 border-none text-slate-700' : 'bg-slate-100 border-none text-slate-500 cursor-not-allowed'
                 }`}
               >
                 <option value="">เลือกแผนก</option>
@@ -614,9 +618,7 @@ function AddUserModal({
                 {canCreateManagerOrAdmin && <option value="manager">Manager</option>}
                 {canCreateManagerOrAdmin && <option value="admin">Admin</option>}
               </select>
-              {!canCreateManagerOrAdmin && (
-                <p className="text-xs text-slate-400 mt-1 ml-1">Manager สามารถสร้างได้เฉพาะ User</p>
-              )}
+              {!canCreateManagerOrAdmin && <p className="text-xs text-slate-400 mt-1 ml-1">Manager สามารถสร้างได้เฉพาะ User</p>}
             </Field>
           </div>
 
@@ -636,6 +638,153 @@ function AddUserModal({
             >
               {loading ? 'กำลังบันทึก...' : 'สร้างผู้ใช้'}
             </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+/* -----------------------------
+   Change Password Modal
+----------------------------- */
+function ChangePasswordModal({
+  currentUser,
+  targetUser,
+  onClose,
+  onSuccess,
+}: {
+  currentUser: any;
+  targetUser: User;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const isSelf = Number(currentUser?.user_id) === Number(targetUser?.user_id);
+  const isAdmin = String(currentUser?.role) === 'admin';
+
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (newPassword.length < 8) {
+      setError('รหัสผ่านใหม่ต้องมีอย่างน้อย 8 ตัวอักษร');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError('รหัสผ่านใหม่ และยืนยันรหัสผ่าน ไม่ตรงกัน');
+      return;
+    }
+    if (isSelf && !isAdmin && !currentPassword) {
+      setError('กรุณากรอกรหัสผ่านปัจจุบัน');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/users/${targetUser.user_id}/password`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          current_password: currentPassword || undefined,
+          new_password: newPassword,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data?.error || 'เปลี่ยนรหัสผ่านไม่สำเร็จ');
+        return;
+      }
+
+      onSuccess();
+    } catch (err) {
+      setError('เกิดข้อผิดพลาดในการเชื่อมต่อ');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-slate-900/30 backdrop-blur-[2px] flex items-center justify-center p-4">
+      <div className="w-full max-w-lg bg-white rounded-[1.5rem] shadow-xl overflow-hidden">
+        <form onSubmit={handleSubmit} className="p-8 space-y-5 text-left">
+          <div className="flex justify-between items-center mb-2">
+            <div>
+              <h3 className="text-xl font-bold text-slate-800">เปลี่ยนรหัสผ่าน</h3>
+              <p className="text-xs text-slate-400 font-normal mt-0.5">
+                ผู้ใช้: <span className="text-slate-700 font-semibold">{targetUser.full_name}</span> ({targetUser.email})
+              </p>
+            </div>
+            <button type="button" onClick={onClose} className="p-2 hover:bg-slate-50 rounded-full text-slate-400">
+              <Icons.Close />
+            </button>
+          </div>
+
+          {error && (
+            <div className="bg-red-50 border border-red-100 text-red-700 px-4 py-3 rounded-xl text-sm font-semibold">
+              {error}
+            </div>
+          )}
+
+          {/* Current password (เฉพาะ user เปลี่ยนของตัวเอง และไม่ใช่ admin) */}
+          {isSelf && !isAdmin && (
+            <Field label="รหัสผ่านปัจจุบัน *">
+              <input
+                type="password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="กรอกรหัสผ่านปัจจุบัน"
+              />
+            </Field>
+          )}
+
+          <Field label="รหัสผ่านใหม่ * (อย่างน้อย 8 ตัวอักษร)">
+            <input
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="อย่างน้อย 8 ตัวอักษร"
+            />
+          </Field>
+
+          <Field label="ยืนยันรหัสผ่านใหม่ *">
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="พิมพ์ซ้ำอีกครั้ง"
+            />
+          </Field>
+
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold text-slate-400 hover:bg-slate-50 transition-all"
+            >
+              ยกเลิก
+            </button>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex-[2] py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 shadow-md shadow-blue-100 transition-all disabled:bg-slate-300"
+            >
+              {loading ? 'กำลังบันทึก...' : 'บันทึกรหัสผ่านใหม่'}
+            </button>
+          </div>
+
+          <div className="text-[11px] text-slate-400 font-medium">
+            * Admin/Manager สามารถตั้งรหัสผ่านใหม่ให้ผู้ใช้อื่นได้ (ไม่ต้องใช้รหัสเดิม) / User ต้องกรอกรหัสผ่านเดิมเมื่อเปลี่ยนของตัวเอง
           </div>
         </form>
       </div>

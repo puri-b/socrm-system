@@ -472,7 +472,7 @@ export default function CustomersPage() {
                 <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">ลูกค้า</th>
                 <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">ผู้ติดต่อ</th>
                 <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">เบอร์โทร</th>
-                <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">แหล่งที่มา</th>
+                <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">บริการ</th>
                 <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">สถานะ</th>
                 <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">มูลค่าสัญญา</th>
                 <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">Sale</th>
@@ -497,7 +497,7 @@ export default function CustomersPage() {
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-700">{c.contact_person || '—'}</td>
                     <td className="px-6 py-4 text-sm text-slate-700">{c.phone || '—'}</td>
-                    <td className="px-6 py-4 text-sm text-slate-700">{c.lead_source || '—'}</td>
+                    <td className="px-6 py-4 text-sm text-slate-700">{c.customer_service_display || c.service_interested || '—'}</td>
                     <td className="px-6 py-4">
                       <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold border ${getStatusColor(c.lead_status)}`}>
                         {c.lead_status}
@@ -640,6 +640,16 @@ function CustomerDetailModal({ customer, onClose, onEdit, formatCurrency, getSta
               <Info label="ประเภทธุรกิจ" value={customer.business_type || '—'} />
               <Info label="ข้อมูลการจดทะเบียน" value={customer.registration_info || '—'} />
               <Info label="งบประมาณ" value={customer.budget ? `฿ ${formatCurrency(customer.budget)}` : '—'} />
+              <Info
+                label="บริการที่สนใจ"
+                value={
+                  customer.customer_service_display ||
+                  (Array.isArray(customer.customer_services) && customer.customer_services.length > 0
+                    ? customer.customer_services.map((s: any) => s?.service_name).filter(Boolean).join(', ')
+                    : customer.service_interested) ||
+                  '—'
+                }
+              />
               <Info label="แหล่งที่มา Lead" value={customer.lead_source || '—'} />
             </div>
           </div>
@@ -649,7 +659,7 @@ function CustomerDetailModal({ customer, onClose, onEdit, formatCurrency, getSta
             <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
               <Info label="Sale ผู้ดูแล" value={customer.sales_person_name || '—'} />
               <Info label="มูลค่าสัญญา" value={customer.contract_value ? `฿ ${formatCurrency(customer.contract_value)}` : '—'} />
-              <Info label="Quality Lead" value={customer.is_quality_lead ? '✅ Lead คุณภาพ' : '❌ Lead ไม่คุณภาพ'} />
+              <Info label="Quality Lead" value={customer.is_quality_lead ? '✅ Lead คุณภาพ' : 'Lead ไม่คุณภาพ'} />
               <Info label="Keyword ค้นหา" value={customer.search_keyword || '—'} />
             </div>
             {customer.pain_points && (
@@ -750,21 +760,58 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
     }
   };
 
-  const toggleService = (serviceId: number) => {
-    const exists = formData.selectedServices.find((s) => s.service_id === serviceId);
-    if (exists) {
-      setFormData({ ...formData, selectedServices: formData.selectedServices.filter((s) => s.service_id !== serviceId) });
-    } else {
-      setFormData({ ...formData, selectedServices: [...formData.selectedServices, { service_id: serviceId, quantity: 1 }] });
-    }
+    // ✅ helper: หา service object จาก id
+  const getServiceById = (serviceId: number | null | undefined) => {
+    if (!serviceId) return null;
+    return services.find((s: any) => Number(s.service_id) === Number(serviceId)) || null;
   };
 
-  const updateServiceQuantity = (serviceId: number, quantity: number) => {
-    setFormData({
-      ...formData,
-      selectedServices: formData.selectedServices.map((s) => (s.service_id === serviceId ? { ...s, quantity } : s)),
+  // ✅ เพิ่มแถวบริการ
+  const addServiceRow = () => {
+    setFormData((prev: any) => ({
+      ...prev,
+      selectedServices: [...(prev.selectedServices || []), { service_id: null, quantity: 1 }]
+    }));
+  };
+
+  // ✅ ลบแถวบริการ
+  const removeServiceRow = (index: number) => {
+    setFormData((prev: any) => ({
+      ...prev,
+      selectedServices: (prev.selectedServices || []).filter((_: any, i: number) => i !== index)
+    }));
+  };
+
+  // ✅ เปลี่ยนบริการในแถว
+  const updateServiceRowId = (index: number, serviceIdRaw: string) => {
+    const serviceId = serviceIdRaw ? Number(serviceIdRaw) : null;
+
+    setFormData((prev: any) => {
+      const next = [...(prev.selectedServices || [])];
+      next[index] = { ...next[index], service_id: serviceId };
+
+      // ถ้า service นั้นไม่ต้องใส่จำนวน ให้ fix เป็น 1
+      const svc = getServiceById(serviceId);
+      if (svc && !svc.requires_quantity) {
+        next[index].quantity = 1;
+      } else if (svc && svc.requires_quantity && (!next[index].quantity || next[index].quantity < 1)) {
+        next[index].quantity = 1;
+      }
+
+      return { ...prev, selectedServices: next };
     });
   };
+
+  // ✅ เปลี่ยนจำนวนในแถว
+  const updateServiceRowQty = (index: number, qtyRaw: string) => {
+    const qty = Math.max(1, Number(qtyRaw || 1));
+    setFormData((prev: any) => {
+      const next = [...(prev.selectedServices || [])];
+      next[index] = { ...next[index], quantity: qty };
+      return { ...prev, selectedServices: next };
+    });
+  };
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -775,7 +822,16 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
       const response = await fetch('/api/customers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formData, services: formData.selectedServices }),
+        body: JSON.stringify({
+  ...formData,
+  services: (formData.selectedServices || [])
+    .filter((s: any) => s?.service_id)
+    .map((s: any) => ({
+      service_id: Number(s.service_id),
+      quantity: Math.max(1, Number(s.quantity || 1)),
+      })),
+  }),
+
       });
 
       const data = await response.json();
@@ -816,11 +872,11 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
                 value={formData.company_name}
                 onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
                 className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="เช่น Siamrajathanee"
+                placeholder="เช่น บริษัท สยามราชธานี จำกัด(มหาชน)"
               />
             </Field>
 
-            <Field label="อีเมล">
+            <Field label="อีเมล *">
               <input
                 type="email"
                 value={formData.email}
@@ -829,7 +885,7 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
               />
             </Field>
 
-            <Field label="เบอร์โทรศัพท์">
+            <Field label="เบอร์โทรศัพท์ * (ไม่ต้องใสขีดกลาง)">
               <input
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
@@ -837,7 +893,7 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
               />
             </Field>
 
-            <Field label="ชื่อผู้ติดต่อ">
+            <Field label="ชื่อผู้ติดต่อ *">
               <input
                 value={formData.contact_person}
                 onChange={(e) => setFormData({ ...formData, contact_person: e.target.value })}
@@ -886,7 +942,7 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
               </select>
             </Field>
 
-            <Field label="Keyword ที่ใช้ค้นหา">
+            <Field label="Keyword ที่ใช้ค้นหา *">
               <input
                 value={formData.search_keyword}
                 onChange={(e) => setFormData({ ...formData, search_keyword: e.target.value })}
@@ -923,7 +979,7 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
               </select>
             </Field>
 
-            <Field label="Pain Points และปัญหาที่ต้องการแก้ไข" full>
+            <Field label="Pain Points และปัญหาที่ต้องการแก้ไข *" full>
               <textarea
                 rows={3}
                 value={formData.pain_points}
@@ -945,45 +1001,105 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
             </div>
 
             {services.length > 0 && (
-              <div className="md:col-span-2">
-                <div className="text-xs font-semibold text-slate-500 mb-2 ml-1">บริการที่สนใจ</div>
-                <div className="space-y-2">
-                  {services.map((sv: any) => {
-                    const selected = formData.selectedServices.find((s) => s.service_id === sv.service_id);
-                    return (
-                      <div key={sv.service_id} className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 border border-slate-100">
-                        <input
-                          type="checkbox"
-                          checked={!!selected}
-                          onChange={() => toggleService(sv.service_id)}
-                          className="h-4 w-4"
-                        />
-                        <div className="flex-1">
-                          <div className="text-sm font-semibold text-slate-800">{sv.service_name}</div>
-                          {sv.requires_quantity && (
-                            <div className="text-xs text-slate-400 mt-0.5">ต้องระบุจำนวน</div>
-                          )}
-                        </div>
-                        {selected && sv.requires_quantity && (
-                          <div className="flex items-center gap-2">
-                            <input
-                              type="number"
-                              min="1"
-                              value={selected.quantity}
-                              onChange={(e) => updateServiceQuantity(sv.service_id, parseInt(e.target.value))}
-                              className="w-20 px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm font-semibold outline-none"
-                            />
-                            <span className="text-sm text-slate-500 font-semibold">
-                              {sv.quantity_unit === 'people' ? 'คน' : 'คัน'}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+  <div className="md:col-span-2">
+    <div className="flex items-center justify-between mb-2">
+      <div className="text-xs font-semibold text-slate-500 ml-1">บริการที่สนใจ</div>
+
+      <button
+        type="button"
+        onClick={addServiceRow}
+        className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 transition"
+      >
+        + เพิ่มบริการ
+      </button>
+    </div>
+
+    {(!formData.selectedServices || formData.selectedServices.length === 0) ? (
+      <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100 text-sm text-slate-600">
+        ยังไม่ได้เลือกบริการ กรุณากด “เพิ่มบริการ”
+      </div>
+    ) : (
+      <div className="space-y-2">
+        {formData.selectedServices.map((row: any, index: number) => {
+          const selectedId = row?.service_id ? Number(row.service_id) : null;
+          const selectedSvc = getServiceById(selectedId);
+
+          // กันเลือกซ้ำ: ถ้า id ถูกใช้ในแถวอื่นแล้ว จะไม่ให้เลือกซ้ำ
+          const usedIds = new Set(
+            (formData.selectedServices || [])
+              .map((r: any) => (r?.service_id ? Number(r.service_id) : null))
+              .filter((v: any) => v !== null)
+          );
+
+          return (
+            <div
+              key={index}
+              className="grid grid-cols-12 gap-2 items-center p-3 rounded-2xl bg-slate-50 border border-slate-100"
+            >
+              {/* Dropdown บริการ */}
+              <div className="col-span-12 md:col-span-7">
+                <select
+                  value={selectedId ?? ''}
+                  onChange={(e) => updateServiceRowId(index, e.target.value)}
+                  className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">— เลือกบริการ —</option>
+                  {services
+                    .filter((s: any) => {
+                      const id = Number(s.service_id);
+                      if (selectedId && id === selectedId) return true;
+                      return !usedIds.has(id);
+                    })
+                    .map((s: any) => (
+                      <option key={s.service_id} value={s.service_id}>
+                        {s.service_name}
+                      </option>
+                    ))}
+                </select>
               </div>
-            )}
+
+              {/* จำนวน */}
+              <div className="col-span-8 md:col-span-4">
+                {selectedSvc?.requires_quantity ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="1"
+                      value={row?.quantity ?? 1}
+                      onChange={(e) => updateServiceRowQty(index, e.target.value)}
+                      className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="จำนวน"
+                    />
+                    <span className="text-sm text-slate-500 font-semibold whitespace-nowrap">
+                      {selectedSvc.quantity_unit === 'people' ? 'คน' : 'คัน'}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-sm text-slate-500">
+                    ไม่ต้องระบุจำนวน
+                  </div>
+                )}
+              </div>
+
+              {/* ลบแถว */}
+              <div className="col-span-4 md:col-span-1 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => removeServiceRow(index)}
+                  className="px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-red-50 hover:border-red-200 transition"
+                  title="ลบบริการนี้"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    )}
+  </div>
+)}
+
           </div>
 
           <div className="flex gap-3 pt-2">
@@ -1021,6 +1137,7 @@ function Field({ label, children, full }: any) {
 // Edit Customer Modal (UI updated)
 // -----------------------------
 function EditCustomerModal({ customer, users, leadSources, onClose, onSuccess }: any) {
+  const [services, setServices] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     company_name: customer.company_name || '',
     email: customer.email || '',
@@ -1036,9 +1153,81 @@ function EditCustomerModal({ customer, users, leadSources, onClose, onSuccess }:
     lead_status: customer.lead_status || 'Lead',
     pain_points: customer.pain_points || '',
     contract_value: customer.contract_value || '',
+    selectedServices: (customer.customer_services || []).map((s: any) => ({
+      service_id: Number(s.service_id),
+      quantity: Math.max(1, Number(s.quantity ?? 1)),
+    })) as any[],
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    fetchServices();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const fetchServices = async () => {
+    try {
+      const dept = customer?.department || '';
+      const response = await fetch(`/api/services?department=${encodeURIComponent(dept)}`);
+      const data = await response.json();
+      setServices(data.services || []);
+    } catch (err) {
+      console.error('Failed to fetch services:', err);
+    }
+  };
+
+  // ✅ helper: หา service object จาก id
+  const getServiceById = (serviceId: number | null | undefined) => {
+    if (!serviceId) return null;
+    return services.find((s: any) => Number(s.service_id) === Number(serviceId)) || null;
+  };
+
+  // ✅ เพิ่มแถวบริการ
+  const addServiceRow = () => {
+    setFormData((prev: any) => ({
+      ...prev,
+      selectedServices: [...(prev.selectedServices || []), { service_id: null, quantity: 1 }],
+    }));
+  };
+
+  // ✅ ลบแถวบริการ
+  const removeServiceRow = (index: number) => {
+    setFormData((prev: any) => ({
+      ...prev,
+      selectedServices: (prev.selectedServices || []).filter((_: any, i: number) => i !== index),
+    }));
+  };
+
+  // ✅ เปลี่ยนบริการในแถว
+  const updateServiceRowId = (index: number, serviceIdRaw: string) => {
+    const serviceId = serviceIdRaw ? Number(serviceIdRaw) : null;
+
+    setFormData((prev: any) => {
+      const next = [...(prev.selectedServices || [])];
+      next[index] = { ...next[index], service_id: serviceId };
+
+      // ถ้า service นั้นไม่ต้องใส่จำนวน ให้ fix เป็น 1
+      const svc = getServiceById(serviceId);
+      if (svc && !svc.requires_quantity) {
+        next[index].quantity = 1;
+      } else if (svc && svc.requires_quantity && (!next[index].quantity || next[index].quantity < 1)) {
+        next[index].quantity = 1;
+      }
+
+      return { ...prev, selectedServices: next };
+    });
+  };
+
+  // ✅ เปลี่ยนจำนวนในแถว
+  const updateServiceRowQty = (index: number, qtyRaw: string) => {
+    const qty = Math.max(1, Number(qtyRaw || 1));
+    setFormData((prev: any) => {
+      const next = [...(prev.selectedServices || [])];
+      next[index] = { ...next[index], quantity: qty };
+      return { ...prev, selectedServices: next };
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1049,7 +1238,15 @@ function EditCustomerModal({ customer, users, leadSources, onClose, onSuccess }:
       const response = await fetch(`/api/customers/${customer.customer_id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          services: (formData.selectedServices || [])
+            .filter((s: any) => s?.service_id)
+            .map((s: any) => ({
+              service_id: Number(s.service_id),
+              quantity: Math.max(1, Number(s.quantity ?? 1)),
+            })),
+        }),
       });
 
       const data = await response.json();
@@ -1224,6 +1421,106 @@ function EditCustomerModal({ customer, users, leadSources, onClose, onSuccess }:
                 เป็น Lead คุณภาพ
               </label>
             </div>
+
+            {services.length > 0 && (
+              <div className="md:col-span-2">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-xs font-semibold text-slate-500 ml-1">บริการที่สนใจ</div>
+
+                  <button
+                    type="button"
+                    onClick={addServiceRow}
+                    className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 transition"
+                  >
+                    + เพิ่มบริการ
+                  </button>
+                </div>
+
+                {(!formData.selectedServices || formData.selectedServices.length === 0) ? (
+                  <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100 text-sm text-slate-600">
+                    ยังไม่ได้เลือกบริการ กรุณากด “เพิ่มบริการ”
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {formData.selectedServices.map((row: any, index: number) => {
+                      const selectedId = row?.service_id ? Number(row.service_id) : null;
+                      const selectedSvc = getServiceById(selectedId);
+
+                      // กันเลือกซ้ำ: ถ้า id ถูกใช้ในแถวอื่นแล้ว จะไม่ให้เลือกซ้ำ
+                      const usedIds = new Set(
+                        (formData.selectedServices || [])
+                          .map((r: any) => (r?.service_id ? Number(r.service_id) : null))
+                          .filter((v: any) => v !== null)
+                      );
+
+                      return (
+                        <div
+                          key={index}
+                          className="grid grid-cols-12 gap-2 items-center p-3 rounded-2xl bg-slate-50 border border-slate-100"
+                        >
+                          {/* Dropdown บริการ */}
+                          <div className="col-span-12 md:col-span-7">
+                            <select
+                              value={selectedId ?? ''}
+                              onChange={(e) => updateServiceRowId(index, e.target.value)}
+                              className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                              <option value="">— เลือกบริการ —</option>
+                              {services
+                                .filter((s: any) => {
+                                  const id = Number(s.service_id);
+                                  if (selectedId && id === selectedId) return true;
+                                  return !usedIds.has(id);
+                                })
+                                .map((s: any) => (
+                                  <option key={s.service_id} value={s.service_id}>
+                                    {s.service_name}
+                                  </option>
+                                ))}
+                            </select>
+                          </div>
+
+                          {/* จำนวน */}
+                          <div className="col-span-8 md:col-span-4">
+                            {selectedSvc?.requires_quantity ? (
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={row?.quantity ?? 1}
+                                  onChange={(e) => updateServiceRowQty(index, e.target.value)}
+                                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
+                                  placeholder="จำนวน"
+                                />
+                                <span className="text-sm text-slate-500 font-semibold whitespace-nowrap">
+                                  {selectedSvc.quantity_unit === 'people' ? 'คน' : 'คัน'}
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-sm text-slate-500">
+                                ไม่ต้องระบุจำนวน
+                              </div>
+                            )}
+                          </div>
+
+                          {/* ลบแถว */}
+                          <div className="col-span-4 md:col-span-1 flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() => removeServiceRow(index)}
+                              className="px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-red-50 hover:border-red-200 transition"
+                              title="ลบบริการนี้"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="flex gap-3 pt-2">
@@ -1247,8 +1544,6 @@ function EditCustomerModal({ customer, users, leadSources, onClose, onSuccess }:
     </div>
   );
 }
-
-// -----------------------------
 // Contact History Modal (UI updated)
 // -----------------------------
 function ContactHistoryModal({ customer, contacts, onClose, onAddContact }: any) {
