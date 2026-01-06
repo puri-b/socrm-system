@@ -4,70 +4,21 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 
-const DEPARTMENTS = ['LBD', 'LBA', 'CR', 'LM', 'DS', 'SN'];
-
 const Icons = {
   Mail: () => (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M4 4h16v16H4z" />
       <path d="m22 6-10 7L2 6" />
     </svg>
   ),
   Lock: () => (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <rect x="3" y="11" width="18" height="11" rx="2" />
       <path d="M7 11V7a5 5 0 0 1 10 0v4" />
     </svg>
   ),
-  Dept: () => (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M3 21h18" />
-      <path d="M5 21V7l8-4 6 3v15" />
-      <path d="M9 21v-8h6v8" />
-    </svg>
-  ),
   ArrowRight: () => (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M5 12h14" />
       <path d="m13 5 7 7-7 7" />
     </svg>
@@ -80,7 +31,6 @@ export default function LoginPage() {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    department: '',
   });
 
   const [error, setError] = useState('');
@@ -95,7 +45,10 @@ export default function LoginPage() {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+        }),
       });
 
       const data = await response.json();
@@ -146,8 +99,8 @@ export default function LoginPage() {
         {/* Card */}
         <div className="bg-white rounded-[1.5rem] border border-slate-100 shadow-sm overflow-hidden">
           <div className="p-7">
-            <h1 className="text-lg font-bold text-slate-800"><center>เข้าสู่ระบบ</center></h1>
-            <p className="text-sm text-slate-500 mt-1"><center>กรุณากรอกข้อมูลเพื่อเข้าสู่ระบบ</center></p>
+            <h1 className="text-lg font-bold text-slate-800">เข้าสู่ระบบ</h1>
+            <p className="text-sm text-slate-500 mt-1">กรุณากรอกข้อมูลเพื่อเข้าสู่ระบบ</p>
 
             {error && (
               <div className="mt-4 bg-red-50 border border-red-100 text-red-700 px-4 py-3 rounded-xl text-sm font-medium">
@@ -169,6 +122,7 @@ export default function LoginPage() {
                     placeholder="example@company.com"
                     className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"
                     required
+                    autoComplete="email"
                   />
                 </div>
               </Field>
@@ -186,29 +140,8 @@ export default function LoginPage() {
                     placeholder="••••••••"
                     className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"
                     required
+                    autoComplete="current-password"
                   />
-                </div>
-              </Field>
-
-              {/* Department */}
-              <Field label="แผนก">
-                <div className="relative">
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                    <Icons.Dept />
-                  </div>
-                  <select
-                    value={formData.department}
-                    onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"
-                    required
-                  >
-                    <option value="">-- เลือกแผนก --</option>
-                    {DEPARTMENTS.map((dept) => (
-                      <option key={dept} value={dept}>
-                        {dept}
-                      </option>
-                    ))}
-                  </select>
                 </div>
               </Field>
 
@@ -227,8 +160,8 @@ export default function LoginPage() {
           {/* Footer */}
           <div className="px-7 py-5 bg-slate-50 border-t border-slate-100">
             <div className="text-xs text-slate-400 space-y-1">
-              <p><center>เวอร์ชัน 1.0 เพื่อการทดสอบการใช้งาน</center></p>
-              <p><center>หากพบปัญหาการใช้งานกรุณาแจ้งคุณภูริ</center></p>
+              <p>เวอร์ชัน 1.0 เพื่อการทดสอบการใช้งาน</p>
+              <p>หากพบปัญหาการใช้งานกรุณาแจ้งคุณภูริ</p>
             </div>
           </div>
         </div>

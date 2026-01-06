@@ -6,62 +6,54 @@ import bcrypt from 'bcryptjs';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, password, department } = body as {
+    const { email, password } = body as {
       email?: string;
       password?: string;
-      department?: string;
     };
 
-    console.log('Login attempt:', { email, department });
-
-    if (!email || !password || !department) {
-      return NextResponse.json({ error: 'กรุณากรอกข้อมูลให้ครบถ้วน' }, { status: 400 });
+    if (!email || !password) {
+      return NextResponse.json({ error: 'กรุณากรอกอีเมลและรหัสผ่าน' }, { status: 400 });
     }
 
+    // ✅ ไม่ต้องส่ง department แล้ว: หา user จาก email อย่างเดียว
     const result = await query(
-      'SELECT * FROM x_socrm.users WHERE email = $1 AND department = $2 AND is_active = true',
-      [email, department]
+      'SELECT * FROM x_socrm.users WHERE email = $1 AND is_active = true',
+      [email]
     );
-
-    console.log('User found:', result.rows.length);
 
     if (result.rows.length === 0) {
       return NextResponse.json(
-        { error: 'อีเมล, รหัสผ่าน หรือแผนกไม่ถูกต้อง' },
+        { error: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' },
         { status: 401 }
+      );
+    }
+
+    // กันกรณีมี email ซ้ำหลายแผนก (ไม่ควรเกิด แต่ป้องกันไว้)
+    if (result.rows.length > 1) {
+      return NextResponse.json(
+        { error: 'พบบัญชีผู้ใช้อีเมลนี้มากกว่า 1 แผนก กรุณาติดต่อ Admin เพื่อจัดการข้อมูล' },
+        { status: 409 }
       );
     }
 
     const user = result.rows[0];
 
-    // 🔎 Debug ชั่วคราว (เอาออกได้ทีหลัง)
-    console.log("Password len:", String(password).length);
-    console.log("Password startsWith $2a$:", String(password).startsWith("$2a$"));
-    console.log("Password raw:", JSON.stringify(password));
-    console.log("Dept:", department);
-    console.log("Hash from DB:", String(user.password_hash));
-
-    console.log('Hash from DB (prefix):', String(user.password_hash).slice(0, 7)); // ควรขึ้นต้นด้วย "$2a$10$"
-    console.log('Comparing password...');
-
-    // ✅ ใช้ bcrypt.compare ตรง ๆ (ข้าม comparePassword ที่อาจเขียนผิด)
+    // ✅ ตรวจรหัสผ่าน
     const isValid = await bcrypt.compare(String(password), String(user.password_hash));
-
-    console.log('Password valid:', isValid);
-
     if (!isValid) {
       return NextResponse.json(
-        { error: 'อีเมล, รหัสผ่าน หรือแผนกไม่ถูกต้อง' },
+        { error: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' },
         { status: 401 }
       );
     }
 
+    // ✅ token จะเก็บ department จาก DB อัตโนมัติ
     const token = generateToken({
       user_id: user.user_id,
       email: user.email,
       department: user.department,
       role: user.role,
-      full_name: user.full_name
+      full_name: user.full_name,
     });
 
     const response = NextResponse.json({
@@ -71,15 +63,16 @@ export async function POST(request: NextRequest) {
         email: user.email,
         full_name: user.full_name,
         department: user.department,
-        role: user.role
-      }
+        role: user.role,
+      },
     });
 
     response.cookies.set('token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 60 * 60 * 24 * 7 // 7 วัน
+      maxAge: 60 * 60 * 24 * 7, // 7 วัน
+      path: '/',
     });
 
     return response;
