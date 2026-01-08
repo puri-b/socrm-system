@@ -105,6 +105,7 @@ export default function CustomersPage() {
       'Offline - Connection',
       'Online - Call in',
       'Online - Line',
+      'Online - Leadform',
       'Online - E-mail',
       'Online - อื่นๆ',
     ],

@@ -102,6 +102,13 @@ const Icons = {
   )
 };
 
+// ✅ สถานะที่ “ปิดงาน” แล้ว ต้องล็อค dropdown (ห้ามแก้ไขต่อ)
+const LOCK_STATUSES = new Set(['completed', 'cancelled']);
+
+// ✅ สถานะที่ต้องให้ผู้ใช้ใส่หมายเหตุ/เหตุผลก่อนส่ง (แทน prompt ของ browser)
+const NOTE_REQUIRED_STATUSES = new Set(['postponed']);
+const NOTE_REQUEST_STATUSES = new Set(['completed', 'cancelled', 'postponed']);
+
 function formatDateTimeTH(value: any) {
   if (!value) return '—';
   const d = new Date(value);
@@ -123,6 +130,19 @@ export default function TasksPage() {
   const [filteredTasks, setFilteredTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+
+  // ✅ Modal ใส่หมายเหตุ/เหตุผล (แทน prompt ของ browser)
+  const [noteOpen, setNoteOpen] = useState(false);
+  const [noteSubmitting, setNoteSubmitting] = useState(false);
+  const [noteTaskId, setNoteTaskId] = useState<number | null>(null);
+  const [noteNextStatus, setNoteNextStatus] = useState<string>('');
+  const [noteText, setNoteText] = useState('');
+
+  // ✅ Modal อนุมัติ/ไม่อนุมัติ (กรณีมีคำขอเปลี่ยนสถานะรออนุมัติ)
+  const [approvalOpen, setApprovalOpen] = useState(false);
+  const [approvalSubmitting, setApprovalSubmitting] = useState(false);
+  const [approvalTask, setApprovalTask] = useState<any>(null);
+  const [approvalDecisionNote, setApprovalDecisionNote] = useState('');
 
   const [statusFilter, setStatusFilter] = useState('all');
   const [assignedFilter, setAssignedFilter] = useState('all');
@@ -194,7 +214,7 @@ export default function TasksPage() {
   };
 
   const isOverdue = (dateStr: string, status: string) => {
-    if (status === 'completed') return false;
+    if (LOCK_STATUSES.has(status)) return false;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const taskDate = new Date(dateStr);
@@ -202,68 +222,185 @@ export default function TasksPage() {
     return taskDate < today;
   };
 
-  const updateTaskStatus = async (taskId: number, newStatus: string) => {
+  const closeNoteModal = () => {
+    setNoteOpen(false);
+    setNoteSubmitting(false);
+    setNoteTaskId(null);
+    setNoteNextStatus('');
+    setNoteText('');
+  };
+
+  const closeApprovalModal = () => {
+    setApprovalOpen(false);
+    setApprovalSubmitting(false);
+    setApprovalTask(null);
+    setApprovalDecisionNote('');
+  };
+
+  const canUserApprove = (task: any) => {
+    if (!user || !task) return false;
+    // ผู้อนุมัติหลัก: ผู้สร้างงาน (created_by) หรือ admin
+    return user.role === 'admin' || Number(task.created_by) === Number(user.user_id);
+  };
+
+  const openApprovalModal = (task: any) => {
+    if (!task?.pending_request_id) return;
+    if (!canUserApprove(task)) return;
+    setApprovalTask(task);
+    setApprovalDecisionNote('');
+    setApprovalOpen(true);
+  };
+
+  const submitApprovalDecision = async (decision: 'approved' | 'rejected') => {
+    if (!approvalTask?.pending_request_id) return;
     try {
-      const response = await fetch('/api/tasks', {
+      setApprovalSubmitting(true);
+      const payload: any = {
+        request_id: Number(approvalTask.pending_request_id),
+        decision,
+      };
+      if (approvalDecisionNote.trim()) payload.decision_note = approvalDecisionNote.trim();
+
+      const res = await fetch('/api/tasks/status-requests', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ task_id: taskId, status: newStatus })
+        body: JSON.stringify(payload),
       });
-      if (response.ok) fetchData();
+
+      if (!res.ok) {
+        console.error('approve/reject failed:', await res.text());
+        alert('อนุมัติไม่สำเร็จ (โปรดลองใหม่)');
+        setApprovalSubmitting(false);
+        return;
+      }
+
+      await fetchData();
+      closeApprovalModal();
+    } catch (e) {
+      console.error(e);
+      alert('อนุมัติไม่สำเร็จ (โปรดลองใหม่)');
+      setApprovalSubmitting(false);
+    }
+  };
+
+  const doPatchTaskStatus = async (taskId: number, newStatus: string, note?: string) => {
+    const payload: any = { task_id: taskId, status: newStatus };
+    if (note && note.trim()) payload.note = note.trim();
+    const response = await fetch('/api/tasks', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (response.ok) {
+      await fetchData();
+      return true;
+    }
+    return false;
+  };
+
+  const updateTaskStatus = async (taskId: number, newStatus: string) => {
+    const task = tasks.find((t: any) => Number(t.task_id) === Number(taskId));
+    if (!task) return;
+
+    // ✅ ถ้ามีคำขอรออนุมัติอยู่แล้ว ห้ามทำอะไรเพิ่ม
+    if (task.pending_request_id) return;
+
+    // ✅ ให้ผู้ถูก assign เท่านั้นที่เปลี่ยนสถานะได้ (ส่งคำขอ/อัปเดต)
+    if (!user || Number(task.assigned_to) !== Number(user.user_id)) return;
+
+    // ✅ ถ้าสถานะนี้ต้องใส่หมายเหตุ ให้เปิด modal ของระบบ
+    if (NOTE_REQUEST_STATUSES.has(newStatus)) {
+      setNoteTaskId(taskId);
+      setNoteNextStatus(newStatus);
+      setNoteText('');
+      setNoteOpen(true);
+      return;
+    }
+
+    try {
+      await doPatchTaskStatus(taskId, newStatus);
     } catch (error) {
       console.error(error);
+    }
+  };
+
+  const submitNoteAndUpdate = async () => {
+    if (!noteTaskId || !noteNextStatus) return;
+
+    // บังคับใส่เหตุผลเฉพาะบางสถานะ
+    if (NOTE_REQUIRED_STATUSES.has(noteNextStatus) && !noteText.trim()) {
+      return;
+    }
+
+    try {
+      setNoteSubmitting(true);
+      const ok = await doPatchTaskStatus(noteTaskId, noteNextStatus, noteText);
+      if (ok) closeNoteModal();
+      else setNoteSubmitting(false);
+    } catch (e) {
+      console.error(e);
+      setNoteSubmitting(false);
     }
   };
 
   const getStatusStyle = (status: string) => {
     const styles: any = {
       pending: 'bg-slate-100 text-slate-600 border-slate-200',
-      in_progress: 'bg-blue-50 text-blue-600 border-blue-100',
-      completed: 'bg-emerald-50 text-emerald-600 border-emerald-100'
+      in_progress: 'bg-blue-50 text-blue-700 border-blue-200',
+      completed: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      cancelled: 'bg-rose-50 text-rose-700 border-rose-200',
+      postponed: 'bg-amber-50 text-amber-700 border-amber-200',
+      not_approved: 'bg-slate-50 text-slate-500 border-slate-200'
     };
-    return styles[status] || 'bg-slate-50 text-slate-600 border-slate-100';
+    return styles[status] || 'bg-slate-100 text-slate-600 border-slate-200';
   };
 
   const getStatusText = (status: string) => {
-    const texts: any = { pending: 'รอดำเนินการ', in_progress: 'กำลังทำ', completed: 'เสร็จสิ้น' };
+    const texts: any = {
+      pending: 'รอดำเนินการ',
+      in_progress: 'กำลังทำ',
+      completed: 'เสร็จสิ้น',
+      cancelled: 'ยกเลิก',
+      postponed: 'ขอเลื่อน',
+      not_approved: 'ไม่อนุมัติ'
+    };
     return texts[status] || status;
   };
 
-  if (loading)
+  if (loading) {
     return (
-      <div className="h-[60vh] flex flex-col items-center justify-center gap-3">
-        <div className="w-8 h-8 border-3 border-slate-100 border-t-blue-600 rounded-full animate-spin"></div>
+      <div className="p-8">
         <p className="text-slate-400 text-sm">กำลังโหลดข้อมูล...</p>
       </div>
     );
+  }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 pb-20 px-4 md:px-0">
-      {/* --- Header --- */}
-      <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div className="p-8 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 tracking-tight">รายการงาน</h1>
-          <p className="text-slate-500 text-sm font-normal">จัดการและติดตามความคืบหน้างานทั้งหมด ({filteredTasks.length} รายการ)</p>
+          <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight">งาน (Tasks)</h1>
+          <p className="text-sm text-slate-500 mt-1">ติดตามงานและอัปเดตสถานะงานในทีม</p>
         </div>
-        <div className="flex items-center gap-2">
-         
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-all shadow-md shadow-blue-100"
-          >
-            <Icons.Plus /> สร้างงานใหม่
-          </button>
-        </div>
-      </header>
 
-      {/* --- Filters --- */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col md:flex-row gap-4 items-center">
-        <div className="flex items-center gap-2 text-slate-400 px-2 border-r border-slate-100 mr-2">
+        <button
+          onClick={() => setShowAddModal(true)}
+          className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 shadow-md shadow-blue-100 transition-all"
+        >
+          <Icons.Plus />
+          เพิ่มงานใหม่
+        </button>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+        <div className="flex items-center gap-2 text-slate-500">
           <Icons.Filter />
-          <span className="text-xs font-semibold uppercase tracking-wider">ตัวกรอง</span>
+          <span className="text-sm font-semibold">ตัวกรอง</span>
         </div>
 
-        <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-3 w-full">
+        <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
@@ -271,8 +408,10 @@ export default function TasksPage() {
           >
             <option value="all">สถานะทั้งหมด</option>
             <option value="pending">รอดำเนินการ</option>
-            <option value="in_progress">กำลังดำเนินการ</option>
-            <option value="completed">เสร็จสิ้นแล้ว</option>
+            <option value="in_progress">กำลังทำ</option>
+            <option value="completed">เสร็จสิ้น</option>
+            <option value="postponed">ขอเลื่อน</option>
+            <option value="cancelled">ยกเลิก</option>
           </select>
 
           <select
@@ -354,140 +493,394 @@ export default function TasksPage() {
               {filteredTasks.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-6 py-12 text-center text-slate-400 text-sm">
-                    ไม่พบรายการงานที่ค้นหา
+                    ไม่พบงานตามตัวกรองที่เลือก
                   </td>
                 </tr>
               ) : (
-                filteredTasks.map((task: any) => {
-                  const overdue = isOverdue(task.task_date, task.status);
-
-                  return (
-                    <tr key={task.task_id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="font-semibold text-slate-700 text-sm">{task.title}</div>
+                filteredTasks.map((task: any) => (
+                  <tr
+                    key={task.task_id}
+                    onClick={() => openApprovalModal(task)}
+                    className={`hover:bg-slate-50/50 transition-colors ${
+                      task.pending_request_id && canUserApprove(task) ? 'cursor-pointer' : ''
+                    }`}
+                  >
+                    {/* Details */}
+                    <td className="px-6 py-4">
+                      <div className="space-y-1">
+                        <div className="text-sm font-bold text-slate-800">{task.title}</div>
+                        {task.description && <div className="text-xs text-slate-500 line-clamp-2">{task.description}</div>}
                         {task.project_name && (
-                          <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-                            {task.project_type ? `${task.project_type} · ` : ''}
-                            {task.project_name}
+                          <div className="inline-flex items-center gap-2 text-xs text-slate-500">
+                            <span className="px-2 py-0.5 rounded-lg bg-slate-50 border border-slate-100">
+                              {task.project_name}
+                            </span>
                           </div>
                         )}
-                        <div className="text-xs text-slate-400 font-normal mt-0.5 line-clamp-1">{task.description || '-'}</div>
-                      </td>
 
-                      <td className="px-6 py-4">
-                        <span className="text-sm font-medium text-slate-600">{task.company_name || '—'}</span>
-                      </td>
-
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col gap-0.5">
-                          <div className="text-slate-600 font-medium text-xs flex items-center gap-1.5">
-                            <div className="w-5 h-5 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-[9px] font-bold text-slate-400">
-                              {task.assigned_to_name?.charAt(0)}
+                        {/* pending request info */}
+                        {task.pending_request_id && (
+                          <div className="mt-2 p-3 rounded-xl bg-amber-50 border border-amber-100 text-amber-800">
+                            <div className="text-xs font-semibold">รออนุมัติการเปลี่ยนสถานะ</div>
+                            <div className="text-[11px] mt-1">
+                              ขอเป็น: <b>{getStatusText(task.pending_requested_status)}</b>
+                              {task.pending_requested_by_name ? (
+                                <>
+                                  {' '}
+                                  โดย <b>{task.pending_requested_by_name}</b>
+                                </>
+                              ) : null}
+                              {task.pending_requested_at ? <> • {formatDateTimeTH(task.pending_requested_at)}</> : null}
                             </div>
-                            {task.assigned_to_name}
-                          </div>
-                          <div className={`text-[11px] font-medium flex items-center gap-1 mt-1 ${overdue ? 'text-red-500 font-semibold' : 'text-slate-400'}`}>
-                            <Icons.Calendar />
-                            {new Date(task.task_date).toLocaleDateString('th-TH')}
-                            {overdue && (
-                              <span className="ml-1 bg-red-50 text-red-600 px-1.5 py-0.5 rounded text-[9px] border border-red-100 flex items-center gap-0.5">
-                                <Icons.Alert /> เกินกำหนด
-                              </span>
+                            {task.pending_note ? (
+                              <div className="text-[11px] mt-1 text-amber-700 whitespace-pre-wrap">หมายเหตุ: {task.pending_note}</div>
+                            ) : null}
+                            {canUserApprove(task) ? (
+                              <div className="text-[11px] mt-2 text-amber-800">
+                                * คลิกแถวนี้เพื่อ “อนุมัติ / ไม่อนุมัติ”
+                              </div>
+                            ) : (
+                              <div className="text-[11px] mt-2 text-amber-800">
+                                * รอผู้สร้างงานทำการพิจารณา
+                              </div>
                             )}
                           </div>
+                        )}
+                      </div>
+                    </td>
+
+                    {/* Customer */}
+                    <td className="px-6 py-4">
+                      <div className="text-sm font-semibold text-slate-700">{task.company_name || '—'}</div>
+                    </td>
+
+                    {/* Assigned + Due */}
+                    <td className="px-6 py-4">
+                      <div className="space-y-1">
+                        <div className="text-sm font-semibold text-slate-700">{task.assigned_to_name || '—'}</div>
+                        <div
+                          className={`inline-flex items-center gap-1 text-xs font-semibold ${
+                            isOverdue(task.task_date, task.status) ? 'text-rose-600' : 'text-slate-500'
+                          }`}
+                        >
+                          <Icons.Calendar />
+                          {formatDateTimeTH(task.task_date)}
+                          {isOverdue(task.task_date, task.status) && (
+                            <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-100">
+                              <Icons.Alert />
+                              เกินกำหนด
+                            </span>
+                          )}
                         </div>
-                      </td>
+                      </div>
+                    </td>
 
-                      {/* ✅ NEW: created_at */}
-                      <td className="px-6 py-4">
-                        <div className="text-sm font-medium text-slate-600">{formatDateTimeTH(task.created_at)}</div>
-                      </td>
+                    {/* ✅ Created at */}
+                    <td className="px-6 py-4">
+                      <div className="text-sm font-semibold text-slate-700">{formatDateTimeTH(task.created_at)}</div>
+                    </td>
 
-                      {/* ✅ NEW: updated_at */}
-                      <td className="px-6 py-4">
-                        <div className="text-sm font-medium text-slate-600">{formatDateTimeTH(task.updated_at)}</div>
-                      </td>
+                    {/* ✅ Updated at */}
+                    <td className="px-6 py-4">
+                      <div className="text-sm font-semibold text-slate-700">{formatDateTimeTH(task.updated_at)}</div>
+                    </td>
 
-                      <td className="px-6 py-4">
-                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold border ${getStatusStyle(task.status)}`}>
+                    {/* Status */}
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold border ${getStatusStyle(
+                            task.status
+                          )}`}
+                        >
                           {getStatusText(task.status)}
                         </span>
-                      </td>
 
-                      <td className="px-6 py-4 text-right">
-                        <select
-                          value={task.status}
-                          onChange={(e) => updateTaskStatus(task.task_id, e.target.value)}
-                          className="bg-white border border-slate-200 rounded-lg px-2 py-1 text-[11px] font-medium text-slate-500 hover:border-blue-300 outline-none transition-all cursor-pointer"
-                        >
-                          <option value="pending">รอดำเนินการ</option>
-                          <option value="in_progress">กำลังทำ</option>
-                          <option value="completed">เสร็จสิ้น</option>
-                        </select>
-                      </td>
-                    </tr>
-                  );
-                })
+                        {task.pending_request_id && (
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold border bg-amber-50 text-amber-700 border-amber-100">
+                            รออนุมัติ
+                          </span>
+                        )}
+                      </div>
+                    </td>
+
+                    {/* Actions */}
+                    <td className="px-6 py-4 text-right">
+                      <select
+                        value={task.status}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => updateTaskStatus(task.task_id, e.target.value)}
+                        disabled={
+                          LOCK_STATUSES.has(task.status) ||
+                          !!task.pending_request_id ||
+                          !user ||
+                          Number(task.assigned_to) !== Number(user.user_id)
+                        }
+                        className={`bg-white border border-slate-200 rounded-lg px-2 py-1 text-[11px] font-medium text-slate-500 outline-none transition-all ${
+                          LOCK_STATUSES.has(task.status) ||
+                          !!task.pending_request_id ||
+                          !user ||
+                          Number(task.assigned_to) !== Number(user.user_id)
+                            ? 'opacity-60 cursor-not-allowed'
+                            : 'hover:border-blue-300 cursor-pointer'
+                        }`}
+                      >
+                        <option value="pending">รอดำเนินการ</option>
+                        <option value="in_progress">กำลังทำ</option>
+                        <option value="completed">เสร็จสิ้น (ขออนุมัติ)</option>
+                        <option value="postponed">ขอเลื่อน (ขออนุมัติ)</option>
+                        <option value="cancelled">ยกเลิก (ขออนุมัติ)</option>
+                      </select>
+                    </td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>
         </div>
       </div>
 
-      {showAddModal && (
-        <AddTaskModal
-          user={user}
-          customers={customers}
-          users={users}
-          onClose={() => setShowAddModal(false)}
-          onSuccess={() => {
-            setShowAddModal(false);
-            fetchData();
-          }}
+      {noteOpen && (
+        <NoteModal
+          title={
+            noteNextStatus === 'completed'
+              ? 'เสร็จสิ้น (ขออนุมัติ)'
+              : noteNextStatus === 'cancelled'
+              ? 'ยกเลิก (ขออนุมัติ)'
+              : noteNextStatus === 'postponed'
+              ? 'ขอเลื่อน (ขออนุมัติ)'
+              : 'ใส่หมายเหตุ'
+          }
+          required={NOTE_REQUIRED_STATUSES.has(noteNextStatus)}
+          value={noteText}
+          onChange={setNoteText}
+          submitting={noteSubmitting}
+          onClose={closeNoteModal}
+          onSubmit={submitNoteAndUpdate}
         />
+      )}
+
+      {approvalOpen && approvalTask && (
+        <ApprovalModal
+          task={approvalTask}
+          decisionNote={approvalDecisionNote}
+          setDecisionNote={setApprovalDecisionNote}
+          submitting={approvalSubmitting}
+          onClose={closeApprovalModal}
+          onApprove={() => submitApprovalDecision('approved')}
+          onReject={() => submitApprovalDecision('rejected')}
+        />
+      )}
+
+      {showAddModal && (
+        <AddTaskModal user={user} customers={customers} users={users} onClose={() => setShowAddModal(false)} onSuccess={fetchData} />
       )}
     </div>
   );
 }
 
-// --- Modal ---
+// --- Modal: Note / Reason ---
+function NoteModal({ title, required, value, onChange, submitting, onClose, onSubmit }: any) {
+  const canSubmit = !submitting && (!required || (required && String(value || '').trim().length > 0));
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+      <div className="absolute inset-0 bg-slate-900/40" onClick={submitting ? undefined : onClose} />
+
+      <div className="relative w-full max-w-xl bg-white rounded-[1.5rem] border border-slate-100 shadow-xl overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50">
+          <div>
+            <h3 className="text-base font-bold text-slate-800">{title}</h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {required ? 'กรุณาระบุเหตุผลในการดำเนินการ' : 'กรุณาระบุหมายเหตุเพิ่มเติม (ถ้ามี)'}
+            </p>
+          </div>
+          <button
+            onClick={submitting ? undefined : onClose}
+            className="p-2 rounded-xl hover:bg-white border border-transparent hover:border-slate-200 text-slate-500 transition"
+            aria-label="close"
+          >
+            <Icons.Close />
+          </button>
+        </div>
+
+        <div className="px-6 py-5">
+          <label className="text-xs font-semibold text-slate-600">หมายเหตุ</label>
+          <textarea
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            rows={5}
+            className="mt-2 w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-100 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder={required ? 'กรุณาระบุเหตุผล...' : 'พิมพ์หมายเหตุเพิ่มเติม (ถ้ามี)...'}
+            disabled={submitting}
+          />
+          {required && !String(value || '').trim() && (
+            <p className="mt-2 text-xs text-rose-600">* จำเป็นต้องระบุเหตุผล</p>
+          )}
+        </div>
+
+        <div className="px-6 py-4 border-t border-slate-100 bg-white flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={submitting ? undefined : onClose}
+            className="px-4 py-2 rounded-xl text-sm font-semibold bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition"
+          >
+            ยกเลิก
+          </button>
+          <button
+            type="button"
+            onClick={canSubmit ? onSubmit : undefined}
+            disabled={!canSubmit}
+            className="px-5 py-2 rounded-xl text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition shadow-md shadow-blue-100"
+          >
+            {submitting ? 'กำลังส่ง...' : 'ยืนยัน'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- Modal: Approve / Reject (Status Request) ---
+function ApprovalModal({ task, decisionNote, setDecisionNote, submitting, onClose, onApprove, onReject }: any) {
+  const requestedStatusText =
+    task.pending_requested_status === 'completed'
+      ? 'เสร็จสิ้น'
+      : task.pending_requested_status === 'cancelled'
+      ? 'ยกเลิก'
+      : task.pending_requested_status === 'postponed'
+      ? 'ขอเลื่อน'
+      : task.pending_requested_status || '-';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+      <div className="absolute inset-0 bg-slate-900/40" onClick={submitting ? undefined : onClose} />
+
+      <div className="relative w-full max-w-xl bg-white rounded-[1.5rem] border border-slate-100 shadow-xl overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50">
+          <div>
+            <div className="text-sm font-semibold text-slate-700">พิจารณาคำขอเปลี่ยนสถานะ</div>
+            <div className="text-xs text-slate-500 mt-1">
+              งาน: <span className="font-semibold text-slate-700">{task.title}</span>
+            </div>
+          </div>
+
+          <button
+            onClick={submitting ? undefined : onClose}
+            className="p-2 rounded-xl hover:bg-white border border-transparent hover:border-slate-200 text-slate-500 transition"
+            aria-label="close"
+          >
+            <Icons.Close />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="rounded-2xl bg-slate-50 border border-slate-100 p-4">
+              <div className="text-xs font-semibold text-slate-500">ขอเปลี่ยนเป็น</div>
+              <div className="mt-1 text-sm font-semibold text-slate-800">{requestedStatusText}</div>
+            </div>
+
+            <div className="rounded-2xl bg-slate-50 border border-slate-100 p-4">
+              <div className="text-xs font-semibold text-slate-500">ผู้ขอ</div>
+              <div className="mt-1 text-sm font-semibold text-slate-800">{task.pending_requested_by_name || '—'}</div>
+              <div className="text-[11px] text-slate-500 mt-1">{formatDateTimeTH(task.pending_requested_at)}</div>
+            </div>
+          </div>
+
+          <div className="rounded-2xl bg-white border border-slate-100 p-4">
+            <div className="text-xs font-semibold text-slate-600">หมายเหตุจากผู้ขอ</div>
+            <div className="mt-2 text-sm text-slate-700 whitespace-pre-wrap">{task.pending_note || '—'}</div>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-slate-600">หมายเหตุผู้อนุมัติ (ไม่บังคับ)</label>
+            <textarea
+              value={decisionNote}
+              onChange={(e) => setDecisionNote(e.target.value)}
+              rows={3}
+              className="mt-2 w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-100 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="พิมพ์หมายเหตุเพิ่มเติม..."
+              disabled={submitting}
+            />
+          </div>
+        </div>
+
+        <div className="px-6 py-4 border-t border-slate-100 bg-white flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={submitting ? undefined : onClose}
+            className="px-4 py-2 rounded-xl text-sm font-semibold bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition"
+          >
+            ยกเลิก
+          </button>
+
+          <button
+            type="button"
+            onClick={onReject}
+            disabled={submitting}
+            className="px-5 py-2 rounded-xl text-sm font-semibold bg-white border border-rose-200 text-rose-600 hover:bg-rose-50 disabled:opacity-60 disabled:cursor-not-allowed transition"
+          >
+            ไม่อนุมัติ
+          </button>
+
+          <button
+            type="button"
+            onClick={onApprove}
+            disabled={submitting}
+            className="px-5 py-2 rounded-xl text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed transition shadow-md shadow-emerald-100"
+          >
+            อนุมัติ
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * ----------------------------
+ * AddTaskModal (ของเดิมคุณ)
+ * ----------------------------
+ * หมายเหตุ: ส่วนนี้ผม “คงโครง UI/ฟีเจอร์ของคุณไว้” (มีปุ่มสร้างโปรเจคใหม่, และ project dropdown เลือกได้เฉพาะลูกค้าที่เลือก)
+ */
 function AddTaskModal({ user, customers, users, onClose, onSuccess }: any) {
+  const [formData, setFormData] = useState<any>({
+    customer_id: '',
+    project_id: '',
+    assigned_to: users?.[0]?.user_id ? String(users[0].user_id) : '',
+    task_date: new Date().toISOString().slice(0, 10),
+    title: '',
+    description: ''
+  });
+
+  const [submitting, setSubmitting] = useState(false);
+
+  // --- Projects loading by customer ---
   const [projects, setProjects] = useState<any[]>([]);
   const [projectsLoading, setProjectsLoading] = useState(false);
+
+  // --- Create Project modal inside AddTaskModal ---
   const [showCreateProject, setShowCreateProject] = useState(false);
   const [creatingProject, setCreatingProject] = useState(false);
-  const [projectForm, setProjectForm] = useState({
+  const [projectForm, setProjectForm] = useState<any>({
     project_name: '',
     project_type: '',
     description: ''
   });
-  const [projectError, setProjectError] = useState('');
-
-  const [formData, setFormData] = useState({
-    customer_id: '',
-    project_id: '',
-    assigned_to: user.user_id,
-    title: '',
-    description: '',
-    task_date: new Date().toISOString().split('T')[0],
-    status: 'pending',
-    department: user.department
-  });
+  const [projectError, setProjectError] = useState<string>('');
 
   useEffect(() => {
-    const customerId = String(formData.customer_id || '');
-    if (!customerId) {
-      setProjects([]);
-      setFormData((prev: any) => ({ ...prev, project_id: '' }));
-      return;
-    }
-    (async () => {
+    const loadProjects = async () => {
+      if (!formData.customer_id) {
+        setProjects([]);
+        setFormData((prev: any) => ({ ...prev, project_id: '' }));
+        return;
+      }
+
       try {
         setProjectsLoading(true);
-        const res = await fetch(`/api/projects?customer_id=${encodeURIComponent(customerId)}`, {
-          cache: 'no-store',
-          credentials: 'include'
-        });
+        const res = await fetch(`/api/projects?customer_id=${formData.customer_id}`);
         const data = await res.json();
         setProjects(data.projects || []);
       } catch (e) {
@@ -496,137 +889,133 @@ function AddTaskModal({ user, customers, users, onClose, onSuccess }: any) {
       } finally {
         setProjectsLoading(false);
       }
-    })();
+    };
+
+    loadProjects();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.customer_id]);
 
   const createProject = async () => {
     if (!formData.customer_id) return;
-
-    setCreatingProject(true);
-    setProjectError('');
+    if (!projectForm.project_name.trim()) {
+      setProjectError('กรุณาระบุชื่อโปรเจค');
+      return;
+    }
 
     try {
+      setProjectError('');
+      setCreatingProject(true);
+
+      const payload = {
+        customer_id: Number(formData.customer_id),
+        project_name: projectForm.project_name.trim(),
+        project_type: projectForm.project_type?.trim() || null,
+        description: projectForm.description?.trim() || null,
+        department: user?.department || null
+      };
+
       const res = await fetch('/api/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        cache: 'no-store',
-        body: JSON.stringify({
-          customer_id: Number(formData.customer_id),
-          project_name: projectForm.project_name.trim(),
-          project_type: projectForm.project_type.trim() || null,
-          description: projectForm.description.trim() || null,
-          department: user.department
-        })
+        body: JSON.stringify(payload)
       });
 
       const data = await res.json();
+
       if (!res.ok) {
         setProjectError(data?.error || 'สร้างโปรเจคไม่สำเร็จ');
+        setCreatingProject(false);
         return;
       }
 
-      const listRes = await fetch(`/api/projects?customer_id=${encodeURIComponent(String(formData.customer_id))}`, {
-        cache: 'no-store',
-        credentials: 'include'
-      });
+      // refresh projects list
+      const listRes = await fetch(`/api/projects?customer_id=${formData.customer_id}`);
       const listData = await listRes.json();
       setProjects(listData.projects || []);
 
-      if (data?.project?.project_id) {
-        setFormData((prev: any) => ({ ...prev, project_id: String(data.project.project_id) }));
+      // auto-select created project
+      const createdId = data?.project?.project_id;
+      if (createdId) {
+        setFormData((prev: any) => ({ ...prev, project_id: String(createdId) }));
       }
 
       setShowCreateProject(false);
       setProjectForm({ project_name: '', project_type: '', description: '' });
     } catch (e) {
       console.error(e);
-      setProjectError('เชื่อมต่อไม่ได้ กรุณาลองใหม่');
+      setProjectError('สร้างโปรเจคไม่สำเร็จ');
     } finally {
       setCreatingProject(false);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const createTask = async (e: any) => {
     e.preventDefault();
+    if (!formData.title.trim()) return;
+
     try {
-      const response = await fetch('/api/tasks', {
+      setSubmitting(true);
+
+      const payload: any = {
+        ...formData,
+        customer_id: formData.customer_id ? Number(formData.customer_id) : null,
+        project_id: formData.project_id ? Number(formData.project_id) : null,
+        assigned_to: Number(formData.assigned_to)
+      };
+
+      const res = await fetch('/api/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          customer_id: formData.customer_id || null,
-          project_id: formData.project_id || null
-        })
+        body: JSON.stringify(payload)
       });
-      if (response.ok) onSuccess();
+
+      if (res.ok) {
+        await onSuccess();
+        onClose();
+        return;
+      }
+
+      console.error('Create task failed:', await res.text());
+      alert('สร้างงานไม่สำเร็จ');
+      setSubmitting(false);
     } catch (err) {
       console.error(err);
+      alert('สร้างงานไม่สำเร็จ');
+      setSubmitting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/30 backdrop-blur-[2px] flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-[1.5rem] shadow-xl max-w-lg w-full overflow-hidden">
-        <form onSubmit={handleSubmit} className="p-8 space-y-5 text-left">
-          <div className="flex justify-between items-center mb-2">
-            <div>
-              <h3 className="text-xl font-bold text-slate-800">สร้างงานใหม่</h3>
-              <p className="text-xs text-slate-400 font-normal mt-0.5">ระบุรายละเอียดงานที่ต้องการมอบหมาย</p>
-            </div>
-            <button type="button" onClick={onClose} className="p-2 hover:bg-slate-50 rounded-full text-slate-400">
-              <Icons.Close />
-            </button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+      <div className="absolute inset-0 bg-slate-900/40" onClick={submitting ? undefined : onClose} />
+
+      <div className="relative w-full max-w-3xl bg-white rounded-[1.75rem] border border-slate-100 shadow-xl overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50">
+          <div>
+            <h2 className="text-base font-bold text-slate-800">เพิ่มงานใหม่</h2>
+            <p className="text-xs text-slate-500 mt-0.5">สร้างงานและกำหนดผู้รับผิดชอบ</p>
           </div>
+          <button
+            onClick={submitting ? undefined : onClose}
+            className="p-2 rounded-xl hover:bg-white border border-transparent hover:border-slate-200 text-slate-500 transition"
+          >
+            <Icons.Close />
+          </button>
+        </div>
 
-          <div className="space-y-4">
+        {/* Body */}
+        <form onSubmit={createTask} className="px-6 py-6 space-y-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Customer */}
             <div>
-              <label className="block text-xs font-semibold text-slate-500 mb-1.5 ml-1">ชื่อโครงการ / หัวข้องาน *</label>
-              <input
-                type="text"
-                required
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none"
-                placeholder="เช่น ติดตามเสนอราคา..."
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 mb-1.5 ml-1">ผู้รับผิดชอบ</label>
-                <select
-                  value={formData.assigned_to}
-                  onChange={(e) => setFormData({ ...formData, assigned_to: parseInt(e.target.value) })}
-                  className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none"
-                >
-                  {users.map((u: any) => (
-                    <option key={u.user_id} value={u.user_id}>
-                      {u.full_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 mb-1.5 ml-1">กำหนดส่ง</label>
-                <input
-                  type="date"
-                  required
-                  value={formData.task_date}
-                  onChange={(e) => setFormData({ ...formData, task_date: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 mb-1.5 ml-1">ลูกค้า</label>
+              <label className="text-xs font-semibold text-slate-600">ลูกค้า (ไม่บังคับ)</label>
               <select
                 value={formData.customer_id}
-                onChange={(e) => setFormData({ ...formData, customer_id: e.target.value })}
-                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none"
+                onChange={(e) => setFormData((prev: any) => ({ ...prev, customer_id: e.target.value }))}
+                className="mt-2 w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-100 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="">ไม่ได้ระบุลูกค้า</option>
+                <option value="">ไม่ระบุลูกค้า</option>
                 {customers.map((c: any) => (
                   <option key={c.customer_id} value={c.customer_id}>
                     {c.company_name}
@@ -635,138 +1024,195 @@ function AddTaskModal({ user, customers, users, onClose, onSuccess }: any) {
               </select>
             </div>
 
+            {/* Project */}
             <div>
-              <label className="block text-xs font-semibold text-slate-500 mb-1.5 ml-1">โปรเจค (ไม่บังคับ)</label>
-              <select
-                value={formData.project_id}
-                onChange={(e) => setFormData({ ...formData, project_id: e.target.value })}
-                disabled={!formData.customer_id || projectsLoading}
-                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none disabled:opacity-60"
-              >
-                <option value="">ไม่ระบุโปรเจค</option>
-                {projects.map((p: any) => (
-                  <option key={p.project_id} value={p.project_id}>
-                    {p.project_type ? `${p.project_type} · ` : ''}
-                    {p.project_name}
-                  </option>
-                ))}
-              </select>
-
-              <div className="mt-2 flex items-center gap-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-slate-600">โปรเจค (ไม่บังคับ)</label>
                 <button
                   type="button"
                   disabled={!formData.customer_id}
                   onClick={() => setShowCreateProject(true)}
-                  className="px-3 py-2 rounded-xl text-xs font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                  className={`text-xs font-semibold px-3 py-1.5 rounded-xl border transition ${
+                    formData.customer_id
+                      ? 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                      : 'bg-slate-100 border-slate-100 text-slate-400 cursor-not-allowed'
+                  }`}
                 >
                   + สร้างโปรเจคใหม่
                 </button>
               </div>
 
-              {!formData.customer_id && <div className="mt-1 text-[11px] text-slate-400">* เลือกลูกค้าก่อน เพื่อให้ระบบดึงรายชื่อโปรเจคของลูกค้านั้น</div>}
+              <select
+                value={formData.project_id}
+                onChange={(e) => setFormData((prev: any) => ({ ...prev, project_id: e.target.value }))}
+                disabled={!formData.customer_id}
+                className={`mt-2 w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-100 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  !formData.customer_id ? 'opacity-60 cursor-not-allowed' : ''
+                }`}
+              >
+                <option value="">
+                  {!formData.customer_id ? 'โปรดเลือกลูกค้าก่อน' : projectsLoading ? 'กำลังโหลดโปรเจค...' : 'ไม่ระบุโปรเจค'}
+                </option>
+                {projects.map((p: any) => (
+                  <option key={p.project_id} value={p.project_id}>
+                    {p.project_name}
+                  </option>
+                ))}
+              </select>
               {formData.customer_id && !projectsLoading && projects.length === 0 && (
-                <div className="mt-1 text-[11px] text-slate-400">ลูกค้ารายนี้ยังไม่มีโปรเจค (คุณสามารถสร้าง Task แบบไม่ระบุโปรเจคได้)</div>
+                <p className="mt-2 text-xs text-slate-400">ลูกค้ารายนี้ยังไม่มีโปรเจค</p>
               )}
             </div>
 
+            {/* Assigned to */}
             <div>
-              <label className="block text-xs font-semibold text-slate-500 mb-1.5 ml-1">รายละเอียด</label>
-              <textarea
-                rows={3}
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none resize-none"
-                placeholder="ข้อมูลเพิ่มเติม..."
+              <label className="text-xs font-semibold text-slate-600">ผู้รับผิดชอบ</label>
+              <select
+                value={formData.assigned_to}
+                onChange={(e) => setFormData((prev: any) => ({ ...prev, assigned_to: e.target.value }))}
+                className="mt-2 w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-100 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {users.map((u: any) => (
+                  <option key={u.user_id} value={u.user_id}>
+                    {u.full_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Task date */}
+            <div>
+              <label className="text-xs font-semibold text-slate-600">กำหนดส่ง</label>
+              <input
+                type="date"
+                value={formData.task_date}
+                onChange={(e) => setFormData((prev: any) => ({ ...prev, task_date: e.target.value }))}
+                className="mt-2 w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-100 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
           </div>
 
-          <div className="flex gap-3 pt-2">
+          {/* Title */}
+          <div>
+            <label className="text-xs font-semibold text-slate-600">หัวข้องาน</label>
+            <input
+              value={formData.title}
+              onChange={(e) => setFormData((prev: any) => ({ ...prev, title: e.target.value }))}
+              required
+              className="mt-2 w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-100 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="เช่น ติดต่อลูกค้า / ส่งใบเสนอราคา / นัดประชุม"
+            />
+          </div>
+
+          {/* Description */}
+          <div>
+            <label className="text-xs font-semibold text-slate-600">รายละเอียด</label>
+            <textarea
+              value={formData.description}
+              onChange={(e) => setFormData((prev: any) => ({ ...prev, description: e.target.value }))}
+              rows={4}
+              className="mt-2 w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-100 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="อธิบายรายละเอียดเพิ่มเติม (ถ้ามี)"
+            />
+          </div>
+
+          {/* Footer actions */}
+          <div className="flex items-center justify-end gap-2 pt-2">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold text-slate-400 hover:bg-slate-50 transition-all"
+              className="px-4 py-2 rounded-xl text-sm font-semibold bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition"
             >
               ยกเลิก
             </button>
-            <button type="submit" className="flex-[2] py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 shadow-md shadow-blue-100 transition-all">
-              บันทึกงาน
+            <button
+              type="submit"
+              disabled={submitting}
+              className="px-5 py-2 rounded-xl text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition shadow-md shadow-blue-100"
+            >
+              {submitting ? 'กำลังสร้าง...' : 'สร้างงาน'}
             </button>
           </div>
+        </form>
 
-          {showCreateProject && (
-            <div className="fixed inset-0 z-[60] bg-slate-900/40 backdrop-blur-[2px] flex items-center justify-center p-4">
-              <div className="bg-white w-full max-w-lg rounded-[1.25rem] shadow-xl overflow-hidden border border-slate-100">
-                <div className="p-6">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h4 className="text-lg font-bold text-slate-800">สร้างโปรเจคใหม่</h4>
-                      <p className="text-xs text-slate-400 mt-0.5">ผูกกับลูกค้าที่คุณเลือกไว้</p>
-                    </div>
-                    <button type="button" onClick={() => setShowCreateProject(false)} className="p-2 hover:bg-slate-50 rounded-full text-slate-400">
-                      <Icons.Close />
-                    </button>
+        {/* Create Project modal inside AddTaskModal */}
+        {showCreateProject && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center px-4">
+            <div className="absolute inset-0 bg-slate-900/40" onClick={() => setShowCreateProject(false)} />
+            <div className="relative w-full max-w-lg bg-white rounded-[1.5rem] border border-slate-100 shadow-xl overflow-hidden">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50">
+                <div>
+                  <h3 className="text-base font-bold text-slate-800">สร้างโปรเจคใหม่</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">โปรเจคจะถูกผูกกับลูกค้าที่เลือก</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowCreateProject(false)}
+                  className="p-2 rounded-xl hover:bg-white border border-transparent hover:border-slate-200 text-slate-500 transition"
+                >
+                  <Icons.Close />
+                </button>
+              </div>
+
+              <div className="px-6 py-5 space-y-4">
+                {projectError && (
+                  <div className="p-3 rounded-xl bg-rose-50 border border-rose-100 text-rose-700 text-sm">
+                    {projectError}
                   </div>
+                )}
 
-                  {projectError && (
-                    <div className="mt-4 bg-red-50 border border-red-100 text-red-700 px-4 py-3 rounded-xl text-sm">{projectError}</div>
-                  )}
+                <div>
+                  <label className="text-xs font-semibold text-slate-600">ชื่อโปรเจค</label>
+                  <input
+                    value={projectForm.project_name}
+                    onChange={(e) => setProjectForm((p: any) => ({ ...p, project_name: e.target.value }))}
+                    className="mt-2 w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-100 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="เช่น อัพระบบเอกสาร / งานสแกน / งาน Outsource"
+                  />
+                </div>
 
-                  <div className="mt-4 space-y-3">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-500 mb-1.5 ml-1">ชื่อโปรเจค *</label>
-                      <input
-                        value={projectForm.project_name}
-                        onChange={(e) => setProjectForm({ ...projectForm, project_name: e.target.value })}
-                        className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="เช่น OCR Project - Phase 1"
-                      />
-                    </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-600">ประเภท (ไม่บังคับ)</label>
+                  <input
+                    value={projectForm.project_type}
+                    onChange={(e) => setProjectForm((p: any) => ({ ...p, project_type: e.target.value }))}
+                    className="mt-2 w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-100 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="เช่น Implementation / Support / Scanning"
+                  />
+                </div>
 
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-500 mb-1.5 ml-1">ประเภทโปรเจค</label>
-                      <input
-                        value={projectForm.project_type}
-                        onChange={(e) => setProjectForm({ ...projectForm, project_type: e.target.value })}
-                        className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="เช่น OCR / Scan / EDMS"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-500 mb-1.5 ml-1">รายละเอียด</label>
-                      <textarea
-                        rows={3}
-                        value={projectForm.description}
-                        onChange={(e) => setProjectForm({ ...projectForm, description: e.target.value })}
-                        className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none resize-none"
-                        placeholder="โน้ตเพิ่มเติม..."
-                      />
-                    </div>
-                  </div>
-
-                  <div className="mt-5 flex gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setShowCreateProject(false)}
-                      className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold text-slate-400 hover:bg-slate-50 transition-all"
-                    >
-                      ยกเลิก
-                    </button>
-                    <button
-                      type="button"
-                      disabled={creatingProject || !projectForm.project_name.trim()}
-                      onClick={createProject}
-                      className="flex-[2] py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 shadow-md shadow-blue-100 transition-all disabled:bg-slate-300"
-                    >
-                      {creatingProject ? 'กำลังสร้าง...' : 'สร้างโปรเจค'}
-                    </button>
-                  </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-600">รายละเอียด (ไม่บังคับ)</label>
+                  <textarea
+                    value={projectForm.description}
+                    onChange={(e) => setProjectForm((p: any) => ({ ...p, description: e.target.value }))}
+                    rows={3}
+                    className="mt-2 w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-100 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="รายละเอียดโปรเจค (ถ้ามี)"
+                  />
                 </div>
               </div>
+
+              <div className="px-6 py-4 border-t border-slate-100 bg-white flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateProject(false)}
+                  className="px-4 py-2 rounded-xl text-sm font-semibold bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="button"
+                  onClick={createProject}
+                  disabled={creatingProject || !projectForm.project_name.trim()}
+                  className="px-5 py-2 rounded-xl text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition shadow-md shadow-blue-100"
+                >
+                  {creatingProject ? 'กำลังสร้าง...' : 'สร้างโปรเจค'}
+                </button>
+              </div>
             </div>
-          )}
-        </form>
+          </div>
+        )}
       </div>
     </div>
   );
