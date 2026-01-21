@@ -1167,7 +1167,7 @@ function AddTaskModal({ user, customers, users, onClose, onSuccess }: any) {
                     value={projectForm.project_name}
                     onChange={(e) => setProjectForm((p: any) => ({ ...p, project_name: e.target.value }))}
                     className="mt-2 w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-100 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="เช่น อัพระบบเอกสาร / งานสแกน / งาน Outsource"
+                    placeholder="เช่น เช่ารถกองพิธี / Call Center / บริหาร Mail Room"
                   />
                 </div>
 
@@ -1177,7 +1177,7 @@ function AddTaskModal({ user, customers, users, onClose, onSuccess }: any) {
                     value={projectForm.project_type}
                     onChange={(e) => setProjectForm((p: any) => ({ ...p, project_type: e.target.value }))}
                     className="mt-2 w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-100 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="เช่น Implementation / Support / Scanning"
+                    placeholder="เช่น Bidding / จัดซื้อจัดจ้างพิเศษ / เสนอราคาปกติ"
                   />
                 </div>
 

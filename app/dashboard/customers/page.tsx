@@ -1072,18 +1072,13 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
                       placeholder="จำนวน"
                     />
                     <span className="text-sm text-slate-500 font-semibold whitespace-nowrap">
-{
-  selectedSvc.quantity_unit === 'people' ? 'คน' : 
-  selectedSvc.service_name === 'บริการคลังเอกสารดิจิทัล' ? 'ผู้ใช้' :
-  selectedSvc.service_name === 'บริการสแกนเอกสาร' ? 'หน้า' :
-  selectedSvc.service_name === 'บริการ OCR' ? 'หน้า' :
-  selectedSvc.service_name === 'คลังเก็บเอกสาร' ? 'กล่อง' : 
-  'คัน'
-}
-
-
-
-
+                      {
+                        selectedSvc.quantity_unit === 'people' ? 'คน' : 
+                        selectedSvc.service_name === 'บริการคลังเอกสารดิจิทัล' ? 'ผู้ใช้' :
+                        selectedSvc.service_name === 'บริการสแกนเอกสาร' ? 'หน้า' :
+                        selectedSvc.service_name === 'บริการ OCR' ? 'หน้า' :
+                        selectedSvc.service_name === 'คลังเก็บเอกสาร' ? 'กล่อง' : 'คัน'
+                    }
                     </span>
                   </div>
                 ) : (
@@ -1505,18 +1500,13 @@ function EditCustomerModal({ customer, users, leadSources, onClose, onSuccess }:
                                   placeholder="จำนวน"
                                 />
                                 <span className="text-sm text-slate-500 font-semibold whitespace-nowrap">
-    {
-  selectedSvc.quantity_unit === 'people' ? 'คน' : 
-  selectedSvc.service_name === 'บริการคลังเอกสารดิจิทัล' ? 'ผู้ใช้' :
-  selectedSvc.service_name === 'บริการสแกนเอกสาร' ? 'หน้า' :
-  selectedSvc.service_name === 'บริการ OCR' ? 'หน้า' :
-  selectedSvc.service_name === 'คลังเก็บเอกสาร' ? 'กล่อง' : 
-  'คัน'
-}
-
-
-
-
+                                  {
+                                    selectedSvc.quantity_unit === 'people' ? 'คน' : 
+                                    selectedSvc.service_name === 'บริการคลังเอกสารดิจิทัล' ? 'ผู้ใช้' :
+                                    selectedSvc.service_name === 'บริการสแกนเอกสาร' ? 'หน้า' :
+                                    selectedSvc.service_name === 'บริการ OCR' ? 'หน้า' :
+                                    selectedSvc.service_name === 'คลังเก็บเอกสาร' ? 'กล่อง' : 'คัน'
+                                  }
                                 </span>
                               </div>
                             ) : (
