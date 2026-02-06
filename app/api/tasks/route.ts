@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
-import { getUserFromRequest, canAccessDepartment, canManageUsers } from '@/lib/auth';
+import { getUserFromRequest, canAccessDepartment, canManageUsers, getAccessibleDepartments } from '@/lib/auth';
 
 type EntityType = 'customer' | 'project' | 'task';
 
@@ -30,8 +30,15 @@ async function logActivity(params: {
   }
 }
 
-const RESTRICTED_STATUSES = new Set(['completed', 'cancelled', 'postponed']);
-const ALLOWED_STATUSES = new Set(['pending', 'in_progress', 'completed', 'cancelled', 'postponed', 'not_approved']);
+const ALLOWED_STATUSES = new Set([
+  'pending',
+  'in_progress',
+  'done',
+  'cancelled',
+  'postponed',
+]);
+
+const RESTRICTED_STATUSES = new Set(['done', 'cancelled', 'postponed']); // ต้องขออนุมัติ
 
 export async function GET(request: NextRequest) {
   try {
@@ -83,11 +90,20 @@ export async function GET(request: NextRequest) {
     const params: any[] = [];
     let paramCount = 1;
 
-    // visibility (เดิมของคุณ): non-admin เห็นงานของแผนกตัวเอง หรือ assigned_to/created_by เป็นตัวเอง
-    if (user.role !== 'admin') {
-      queryText += ` AND (t.department = $${paramCount} OR t.assigned_to = $${paramCount + 1} OR t.created_by = $${paramCount + 2})`;
-      params.push(user.department, user.user_id, user.user_id);
-      paramCount += 3;
+    // visibility (รองรับ digital_marketing):
+    // - admin: เห็นทั้งหมด
+    // - non-admin: เห็นงานของแผนกที่เข้าถึงได้ + งานที่ assigned_to/created_by เป็นตัวเอง
+    const accessibleDepts = getAccessibleDepartments(user);
+    if (accessibleDepts !== null) {
+      if (accessibleDepts.length === 0) {
+        queryText += ` AND (t.assigned_to = $${paramCount} OR t.created_by = $${paramCount + 1})`;
+        params.push(user.user_id, user.user_id);
+        paramCount += 2;
+      } else {
+        queryText += ` AND (t.department = ANY($${paramCount}::text[]) OR t.assigned_to = $${paramCount + 1} OR t.created_by = $${paramCount + 2})`;
+        params.push(accessibleDepts, user.user_id, user.user_id);
+        paramCount += 3;
+      }
     }
 
     if (status) {
@@ -129,62 +145,45 @@ export async function POST(request: NextRequest) {
     const data = await request.json();
     const {
       customer_id,
-      project_id,
-      assigned_to,
       title,
       description,
       task_date,
       status,
       department,
+      assigned_to,
+      project_id,
     } = data;
 
-    if (!title || !String(title).trim()) {
-      return NextResponse.json({ error: 'กรุณาระบุ title' }, { status: 400 });
-    }
-    if (!assigned_to) {
-      return NextResponse.json({ error: 'กรุณาระบุ assigned_to' }, { status: 400 });
-    }
-    if (!task_date) {
-      return NextResponse.json({ error: 'กรุณาระบุ task_date' }, { status: 400 });
+    if (!customer_id || !title) {
+      return NextResponse.json({ error: 'customer_id และ title จำเป็นต้องระบุ' }, { status: 400 });
     }
 
-    const dept = department || user.department;
+    // Determine customer department to authorize
+    const custRes = await query(`SELECT customer_id, department, company_name FROM x_socrm.customers WHERE customer_id = $1`, [Number(customer_id)]);
+    if (custRes.rows.length === 0) return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
 
-    if (!canAccessDepartment(user, dept)) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
-    }
+    const customerDept = String(custRes.rows[0].department);
+    if (!canAccessDepartment(user, customerDept)) return NextResponse.json({ error: 'Access denied' }, { status: 403 });
 
-    // manager/admin เท่านั้นที่ assign ให้คนอื่นได้
-    if (Number(assigned_to) !== Number(user.user_id) && !canManageUsers(user)) {
-      return NextResponse.json(
-        { error: 'เฉพาะ Manager และ Admin เท่านั้นที่สามารถมอบหมายงานให้ผู้อื่นได้' },
-        { status: 403 }
-      );
-    }
+    const deptToSave = String(department || customerDept || user.department);
+    const assignedTo = assigned_to ? Number(assigned_to) : user.user_id;
 
-    const taskStatus = status || 'pending';
-    if (!ALLOWED_STATUSES.has(String(taskStatus))) {
-      return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
-    }
-
-    // ✅ customer_id / project_id "ไม่บังคับ" (ส่ง null ได้)
     const result = await query(
       `INSERT INTO x_socrm.tasks (
-        customer_id, project_id, assigned_to, assigned_by, created_by, title, description,
-        task_date, status, department
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        customer_id, assigned_to, created_by, title, description, task_date, status, department, project_id, assigned_by
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
       RETURNING *`,
       [
-        customer_id ? Number(customer_id) : null,
+        Number(customer_id),
+        assignedTo,
+        user.user_id,
+        title,
+        description || null,
+        task_date || null,
+        status || 'pending',
+        deptToSave,
         project_id ? Number(project_id) : null,
-        Number(assigned_to),
-        user.user_id, // assigned_by
-        user.user_id, // created_by
-        String(title).trim(),
-        description ? String(description) : null,
-        task_date,
-        String(taskStatus),
-        dept,
+        user.user_id,
       ]
     );
 
@@ -193,16 +192,10 @@ export async function POST(request: NextRequest) {
     await logActivity({
       entity_type: 'task',
       entity_id: task.task_id,
-      action: 'TASK_CREATED',
+      action: 'create',
       performed_by: user.user_id,
       message: `สร้างงาน: ${task.title}`,
-      meta: {
-        customer_id: task.customer_id,
-        project_id: task.project_id,
-        assigned_to: task.assigned_to,
-        assigned_by: task.assigned_by,
-        status: task.status,
-      },
+      meta: { customer_id, project_id: project_id ?? null },
     });
 
     return NextResponse.json({ success: true, task });
@@ -245,10 +238,11 @@ export async function PATCH(request: NextRequest) {
 
     const task = taskRes.rows[0];
 
-    // visibility (match GET)
+    // visibility (match GET) รองรับ digital_marketing
     if (user.role !== 'admin') {
+      const accessibleDepts = getAccessibleDepartments(user) || [];
       const ok =
-        task.department === user.department ||
+        accessibleDepts.includes(String(task.department)) ||
         Number(task.assigned_to) === Number(user.user_id) ||
         Number(task.created_by) === Number(user.user_id);
       if (!ok) return NextResponse.json({ error: 'Access denied' }, { status: 403 });
@@ -260,7 +254,6 @@ export async function PATCH(request: NextRequest) {
         return NextResponse.json({ error: 'สถานะ "ขอเลื่อน" ต้องระบุหมายเหตุ (note)' }, { status: 400 });
       }
 
-      // ✅ ป้องกันสร้างคำขอซ้ำ ถ้ามี pending อยู่แล้ว
       const pendingRes = await query(
         `
         SELECT request_id, requested_status, note, requested_by, created_at
@@ -269,84 +262,58 @@ export async function PATCH(request: NextRequest) {
         ORDER BY created_at DESC
         LIMIT 1
         `,
-        [Number(task.task_id)]
+        [Number(task_id)]
       );
 
       if (pendingRes.rows.length > 0) {
-        return NextResponse.json({
-          success: true,
-          requires_approval: true,
-          request: pendingRes.rows[0],
-          message: 'มีคำขอรออนุมัติอยู่แล้ว',
-        });
+        return NextResponse.json({ error: 'มีคำขอรออนุมัติอยู่แล้ว' }, { status: 400 });
       }
 
-      // ✅ ผู้อนุมัติ = ผู้สร้างงานเท่านั้น
       const requiredApproverIds = [Number(task.created_by)];
-
       const reqRes = await query(
         `
-        INSERT INTO x_socrm.task_status_requests
-          (task_id, requested_status, note, requested_by, required_approver_ids)
+        INSERT INTO x_socrm.task_status_requests (task_id, requested_status, note, requested_by, required_approver_ids)
         VALUES ($1, $2, $3, $4, $5)
         RETURNING *
         `,
-        [
-          Number(task.task_id),
-          newStatus,
-          note ? String(note) : null,
-          Number(user.user_id),
-          requiredApproverIds,
-        ]
+        [Number(task_id), newStatus, note || null, user.user_id, JSON.stringify(requiredApproverIds)]
       );
-
-      const reqRow = reqRes.rows[0];
 
       await logActivity({
         entity_type: 'task',
-        entity_id: Number(task.task_id),
-        action: 'TASK_STATUS_CHANGE_REQUESTED',
-        performed_by: Number(user.user_id),
-        message: `ขอเปลี่ยนสถานะงานเป็น ${newStatus} (รอผู้สร้างงานอนุมัติ)`,
-        meta: {
-          request_id: reqRow.request_id,
-          requested_status: newStatus,
-          note: note ? String(note) : null,
-          approver: Number(task.created_by),
-        },
+        entity_id: Number(task_id),
+        action: 'request_status_change',
+        performed_by: user.user_id,
+        message: `ขอเปลี่ยนสถานะงานเป็น: ${newStatus}`,
+        meta: { note: note || null, required_approver_ids: requiredApproverIds },
       });
 
-      return NextResponse.json({
-        success: true,
-        requires_approval: true,
-        request: reqRow,
-      });
+      return NextResponse.json({ success: true, request: reqRes.rows[0], requires_approval: true });
     }
 
-    // ✅ สถานะทั่วไป: อัปเดตได้ทันที (assigned ทำได้)
-    const updRes = await query(
+    // ✅ สถานะทั่วไป (ไม่ต้อง approval)
+    const upd = await query(
       `
       UPDATE x_socrm.tasks
-      SET status = $1,
-          updated_at = CURRENT_TIMESTAMP
-      WHERE task_id = $2
+      SET status = $1, status_note = $2, updated_at = CURRENT_TIMESTAMP
+      WHERE task_id = $3
       RETURNING *
       `,
-      [newStatus, Number(task.task_id)]
+      [newStatus, note || null, Number(task_id)]
     );
 
     await logActivity({
       entity_type: 'task',
-      entity_id: Number(task.task_id),
-      action: 'TASK_STATUS_UPDATED',
-      performed_by: Number(user.user_id),
-      message: `อัปเดตสถานะงานเป็น ${newStatus}`,
-      meta: { status: newStatus },
+      entity_id: Number(task_id),
+      action: 'update_status',
+      performed_by: user.user_id,
+      message: `เปลี่ยนสถานะงานเป็น: ${newStatus}`,
+      meta: { note: note || null },
     });
 
-    return NextResponse.json({ success: true, task: updRes.rows[0] });
+    return NextResponse.json({ success: true, task: upd.rows[0], requires_approval: false });
   } catch (error) {
-    console.error('Update task error:', error);
+    console.error('Update task status error:', error);
     return NextResponse.json({ error: 'เกิดข้อผิดพลาด' }, { status: 500 });
   }
 }

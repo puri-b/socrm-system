@@ -144,6 +144,7 @@ export default function UsersPage() {
     const colors: Record<string, string> = {
       admin: 'bg-red-50 text-red-700 border-red-100',
       manager: 'bg-purple-50 text-purple-700 border-purple-100',
+      digital_marketing: 'bg-emerald-50 text-emerald-700 border-emerald-100',
       user: 'bg-blue-50 text-blue-700 border-blue-100',
     };
     return colors[role] || 'bg-slate-50 text-slate-600 border-slate-100';
@@ -153,6 +154,7 @@ export default function UsersPage() {
     const texts: Record<string, string> = {
       admin: 'ผู้ดูแลระบบ',
       manager: 'ผู้จัดการ',
+      digital_marketing: 'Digital Marketing',
       user: 'พนักงาน',
     };
     return texts[role] || role;
@@ -269,6 +271,7 @@ export default function UsersPage() {
             <option value="all">ทุกระดับสิทธิ์</option>
             <option value="admin">Admin</option>
             <option value="manager">Manager</option>
+            <option value="digital_marketing">Digital Marketing</option>
             <option value="user">User</option>
           </select>
 
@@ -454,6 +457,7 @@ function AddUserModal({
     full_name: '',
     department: isAdmin ? '' : currentUser?.department,
     role: 'user',
+    allowed_departments: [] as string[],
   });
 
   const [loading, setLoading] = useState(false);
@@ -482,6 +486,14 @@ function AddUserModal({
       return;
     }
 
+    if (formData.role === 'digital_marketing') {
+      const arr = Array.isArray(formData.allowed_departments) ? formData.allowed_departments : [];
+      if (arr.length === 0) {
+        setError('กรุณาเลือกแผนกที่ Digital Marketing สามารถเข้าถึงอย่างน้อย 1 แผนก');
+        return;
+      }
+    }
+
     // Manager: role บังคับ user
     if (!canCreateManagerOrAdmin && formData.role !== 'user') {
       setError('Manager สามารถสร้างได้เฉพาะ User');
@@ -506,6 +518,7 @@ function AddUserModal({
           full_name: formData.full_name,
           department: formData.department,
           role: formData.role,
+          allowed_departments: formData.role === 'digital_marketing' ? formData.allowed_departments : undefined,
         }),
       });
 
@@ -606,7 +619,21 @@ function AddUserModal({
             <Field label="สิทธิ์ผู้ใช้">
               <select
                 value={formData.role}
-                onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                onChange={(e) => {
+                  const role = e.target.value;
+                  // เปลี่ยน role -> reset allowed_departments แบบเหมาะสม
+                  setFormData((prev) => {
+                    const next = { ...prev, role };
+                    if (role !== 'digital_marketing') {
+                      return { ...next, allowed_departments: [] };
+                    }
+                    // ถ้าเป็น digital_marketing และยังไม่เลือก ให้ใส่ department เป็น default
+                    const baseDept = String(prev.department || '');
+                    const arr = Array.isArray(prev.allowed_departments) ? prev.allowed_departments : [];
+                    const withDept = baseDept ? Array.from(new Set([baseDept, ...arr])) : arr;
+                    return { ...next, allowed_departments: withDept };
+                  });
+                }}
                 disabled={!canCreateManagerOrAdmin}
                 className={`w-full px-4 py-2.5 rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 ${
                   canCreateManagerOrAdmin
@@ -616,10 +643,48 @@ function AddUserModal({
               >
                 <option value="user">User</option>
                 {canCreateManagerOrAdmin && <option value="manager">Manager</option>}
+                {canCreateManagerOrAdmin && <option value="digital_marketing">Digital Marketing</option>}
                 {canCreateManagerOrAdmin && <option value="admin">Admin</option>}
               </select>
               {!canCreateManagerOrAdmin && <p className="text-xs text-slate-400 mt-1 ml-1">Manager สามารถสร้างได้เฉพาะ User</p>}
             </Field>
+
+            {/* Digital Marketing: เลือกแผนกที่สามารถเห็นได้มากกว่า 1 แผนก */}
+            {String(formData.role) === 'digital_marketing' && (
+              <Field label="Digital Marketing: แผนกที่เข้าถึงได้ (เลือกได้หลายแผนก)">
+                <div className="bg-slate-50 rounded-xl p-4">
+                  <div className="grid grid-cols-2 gap-2">
+                    {departments.map((d) => {
+                      const checked = formData.allowed_departments.includes(d);
+                      return (
+                        <label key={d} className="flex items-center gap-2 text-sm font-semibold text-slate-600">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) => {
+                              const isChecked = e.target.checked;
+                              setFormData((prev) => {
+                                const cur = Array.isArray(prev.allowed_departments) ? prev.allowed_departments : [];
+                                const next = isChecked ? Array.from(new Set([...cur, d])) : cur.filter((x) => x !== d);
+                                // บังคับให้มี department หลักรวมอยู่ด้วย
+                                const baseDept = String(prev.department || '');
+                                const final = baseDept ? Array.from(new Set([baseDept, ...next])) : next;
+                                return { ...prev, allowed_departments: final };
+                              });
+                            }}
+                            className="h-4 w-4 rounded border-slate-300"
+                          />
+                          <span>{d}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <p className="text-xs text-slate-400 mt-2">
+                    หมายเหตุ: สิทธิ์นี้จะเห็นข้อมูลได้เฉพาะแผนกที่เลือก (ไม่ใช่ทุกแผนก)
+                  </p>
+                </div>
+              </Field>
+            )}
           </div>
 
           <div className="flex gap-3 pt-2">

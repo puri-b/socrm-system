@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
-import { getUserFromRequest, canAccessDepartment } from '@/lib/auth';
+import { getUserFromRequest, canAccessDepartment, getAccessibleDepartments } from '@/lib/auth';
+
+type EntityType = 'customer' | 'project' | 'task';
 
 async function logActivity(params: {
-  entity_type: 'customer' | 'project' | 'task';
+  entity_type: EntityType;
   entity_id: number;
   action: string;
   performed_by: number;
@@ -48,16 +50,27 @@ export async function GET(request: NextRequest) {
     const params: any[] = [];
     let i = 1;
 
-    // Visibility
-    if (user.role !== 'admin') {
-      // show projects of customer's department (and optionally project.department)
-      q += ` AND (c.department = $${i} OR p.department = $${i})`;
-      params.push(user.department);
-      i++;
-    } else if (department) {
-      q += ` AND (c.department = $${i} OR p.department = $${i})`;
-      params.push(department);
-      i++;
+    // Visibility (รองรับ digital_marketing)
+    const accessibleDepts = getAccessibleDepartments(user);
+    if (accessibleDepts === null) {
+      if (department) {
+        q += ` AND (c.department = $${i} OR p.department = $${i})`;
+        params.push(department);
+        i++;
+      }
+    } else {
+      if (accessibleDepts.length === 0) {
+        return NextResponse.json({ projects: [] });
+      }
+      if (department && accessibleDepts.includes(department)) {
+        q += ` AND (c.department = $${i} OR p.department = $${i})`;
+        params.push(department);
+        i++;
+      } else {
+        q += ` AND (c.department = ANY($${i}::text[]) OR p.department = ANY($${i}::text[]))`;
+        params.push(accessibleDepts);
+        i++;
+      }
     }
 
     if (customerId) {
@@ -97,7 +110,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'customer_id และ project_name จำเป็นต้องระบุ' }, { status: 400 });
     }
 
-    // Determine customer department (source of truth) to authorize
     const customerRes = await query(
       `SELECT customer_id, department, company_name FROM x_socrm.customers WHERE customer_id = $1`,
       [customer_id]
@@ -121,9 +133,9 @@ export async function POST(request: NextRequest) {
       [
         customer_id,
         project_name,
-        project_type || null,
-        description || null,
-        status || 'Active',
+        project_type,
+        description,
+        status || 'open',
         deptToSave,
         user.user_id,
       ]
@@ -134,10 +146,10 @@ export async function POST(request: NextRequest) {
     await logActivity({
       entity_type: 'project',
       entity_id: project.project_id,
-      action: 'PROJECT_CREATED',
+      action: 'create',
       performed_by: user.user_id,
-      message: `สร้างโปรเจค: ${project_name}`,
-      meta: { customer_id, project_type: project_type || null },
+      message: `สร้างโปรเจกต์: ${project.project_name}`,
+      meta: { customer_id },
     });
 
     return NextResponse.json({ success: true, project });

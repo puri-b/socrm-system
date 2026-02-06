@@ -95,6 +95,10 @@ export default function CustomersPage() {
   const [qualityLeadFilter, setQualityLeadFilter] = useState('all');
   const [departmentFilter, setDepartmentFilter] = useState('all');
 
+  // ✅ filter by created_at date
+  const [createdFrom, setCreatedFrom] = useState(''); // YYYY-MM-DD
+  const [createdTo, setCreatedTo] = useState(''); // YYYY-MM-DD
+
   // service filter (ตาม requirement ของคุณ)
   const [serviceFilter, setServiceFilter] = useState('all');
   const [filterServices, setFilterServices] = useState<any[]>([]);
@@ -146,15 +150,15 @@ export default function CustomersPage() {
   useEffect(() => {
     filterCustomers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [customers, statusFilter, searchTerm, leadSourceFilter, salesPersonFilter, qualityLeadFilter, departmentFilter, serviceFilter]);
+  }, [customers, statusFilter, searchTerm, leadSourceFilter, salesPersonFilter, qualityLeadFilter, departmentFilter, serviceFilter, createdFrom, createdTo]);
 
   const fetchFilterServices = async (u: any, deptFilter: string) => {
     try {
       if (!u) return;
 
       let url = '/api/services';
-      // Admin: if select specific dept -> load services of that dept
-      if (u.role === 'admin' && deptFilter !== 'all') {
+      // Admin/Digital Marketing: if select specific dept -> load services of that dept
+      if ((u.role === 'admin' || u.role === 'digital_marketing') && deptFilter !== 'all') {
         url = `/api/services?department=${encodeURIComponent(deptFilter)}`;
       }
       // Manager/User: API จะคืนเฉพาะบริการของแผนกตนเองอยู่แล้ว (ตามที่คุณแก้ไว้แล้ว)
@@ -201,15 +205,34 @@ export default function CustomersPage() {
       filtered = filtered.filter((c) => c.is_quality_lead === isQuality);
     }
 
-    // Admin เท่านั้นที่มีตัวกรองแผนก
-    if (user?.role === 'admin' && departmentFilter !== 'all') {
+    // Admin และ Digital Marketing มีตัวกรองแผนก (Digital Marketing เห็นเฉพาะแผนกที่กำหนด)
+    if ((user?.role === 'admin' || user?.role === 'digital_marketing') && departmentFilter !== 'all') {
       filtered = filtered.filter((c) => c.department === departmentFilter);
     }
 
-    // service filter (ต้องอาศัย service_ids ใน customer)
+    // ✅ service filter (อิงจาก customer_services ที่ API ส่งมา)
     if (serviceFilter !== 'all') {
       const sid = parseInt(serviceFilter);
-      filtered = filtered.filter((c) => Array.isArray(c.service_ids) && c.service_ids.includes(sid));
+      filtered = filtered.filter((c) => {
+        const arr = Array.isArray(c.customer_services) ? c.customer_services : [];
+        return arr.some((x: any) => Number(x?.service_id) === sid);
+      });
+    }
+
+    // ✅ filter by created_at date
+    if (createdFrom) {
+      const from = new Date(`${createdFrom}T00:00:00`).getTime();
+      filtered = filtered.filter((c) => {
+        const t = c?.created_at ? new Date(c.created_at).getTime() : NaN;
+        return Number.isFinite(t) && t >= from;
+      });
+    }
+    if (createdTo) {
+      const to = new Date(`${createdTo}T23:59:59`).getTime();
+      filtered = filtered.filter((c) => {
+        const t = c?.created_at ? new Date(c.created_at).getTime() : NaN;
+        return Number.isFinite(t) && t <= to;
+      });
     }
 
     if (searchTerm) {
@@ -392,19 +415,53 @@ export default function CustomersPage() {
             ))}
           </select>
 
-          {/* service */}
-          <select
-            value={serviceFilter}
-            onChange={(e) => setServiceFilter(e.target.value)}
-            className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"
-          >
-            <option value="all">บริการทั้งหมด</option>
-            {filterServices.map((sv: any) => (
-              <option key={sv.service_id} value={sv.service_id}>
-                {sv.service_name}
-              </option>
-            ))}
-          </select>
+          {/* created date from */}
+          <div className="w-full">
+            <div className="text-[11px] text-slate-500 font-semibold mb-1 flex items-center gap-1">
+              <Icons.Calendar /> วันที่บันทึก (เริ่ม)
+            </div>
+            <input
+              type="date"
+              value={createdFrom}
+              onChange={(e) => setCreatedFrom(e.target.value)}
+              className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"
+            />
+          </div>
+
+          {/* created date to */}
+          <div className="w-full">
+            <div className="text-[11px] text-slate-500 font-semibold mb-1 flex items-center gap-1">
+              <Icons.Calendar /> วันที่บันทึก (สิ้นสุด)
+            </div>
+            <input
+              type="date"
+              value={createdTo}
+              onChange={(e) => setCreatedTo(e.target.value)}
+              className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"
+            />
+          </div>
+
+          <div className="w-full">
+  {/* label ด้านบน */}
+  <div className="mb-1 flex items-center gap-1 text-[11px] text-slate-500 font-semibold">
+    บริการ
+  </div>
+
+  <select
+    value={serviceFilter}
+    onChange={(e) => setServiceFilter(e.target.value)}
+    className="w-full h-11 px-4 bg-slate-50 border-none rounded-xl text-sm font-medium text-slate-700
+               focus:ring-2 focus:ring-blue-500 outline-none"
+  >
+    <option value="all">บริการทั้งหมด</option>
+    {filterServices.map((sv: any) => (
+      <option key={sv.service_id} value={sv.service_id}>
+        {sv.service_name}
+      </option>
+    ))}
+  </select>
+</div>
+
 
           {/* sales person */}
           <select
@@ -431,15 +488,18 @@ export default function CustomersPage() {
             <option value="not-quality">Lead ไม่คุณภาพ</option>
           </select>
 
-          {/* department only for admin */}
-          {user?.role === 'admin' && (
+          {/* department: admin + digital_marketing */}
+          {(user?.role === 'admin' || user?.role === 'digital_marketing') && (
             <select
               value={departmentFilter}
               onChange={(e) => setDepartmentFilter(e.target.value)}
               className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"
             >
               <option value="all">ทุกแผนก</option>
-              {DEPARTMENTS.map((d) => (
+              {(user?.role === 'digital_marketing'
+                ? (Array.isArray(user?.allowed_departments) ? user.allowed_departments : []).map((code: string) => ({ code, name: code }))
+                : DEPARTMENTS
+              ).map((d: any) => (
                 <option key={d.code} value={d.code}>
                   {d.name}
                 </option>
@@ -456,6 +516,8 @@ export default function CustomersPage() {
               setQualityLeadFilter('all');
               setDepartmentFilter('all');
               setSearchTerm('');
+              setCreatedFrom('');
+              setCreatedTo('');
             }}
             className="w-full px-4 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-semibold hover:bg-slate-50 transition-all"
           >
@@ -794,6 +856,8 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
       // ถ้า service นั้นไม่ต้องใส่จำนวน ให้ fix เป็น 1
       const svc = getServiceById(serviceId);
       if (svc && !svc.requires_quantity) {
+        next[index].quantity = 1;
+      } else if (svc && svc.requires_quantity && (!next[index].quantity || next[index].quantity < 1)) {
         next[index].quantity = 1;
       } else if (svc && svc.requires_quantity && (!next[index].quantity || next[index].quantity < 1)) {
         next[index].quantity = 1;
@@ -1217,6 +1281,10 @@ function EditCustomerModal({ customer, users, leadSources, onClose, onSuccess }:
       // ถ้า service นั้นไม่ต้องใส่จำนวน ให้ fix เป็น 1
       const svc = getServiceById(serviceId);
       if (svc && !svc.requires_quantity) {
+        next[index].quantity = 1;
+      } else if (svc && svc.requires_quantity && (!next[index].quantity || next[index].quantity < 1)) {
+        next[index].quantity = 1;
+      } else if (svc && svc.requires_quantity && (!next[index].quantity || next[index].quantity < 1)) {
         next[index].quantity = 1;
       } else if (svc && svc.requires_quantity && (!next[index].quantity || next[index].quantity < 1)) {
         next[index].quantity = 1;

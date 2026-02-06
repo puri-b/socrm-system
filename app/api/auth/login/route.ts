@@ -1,23 +1,20 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
-import { generateToken } from '@/lib/auth';
-import bcrypt from 'bcryptjs';
+import { comparePassword, generateToken } from '@/lib/auth';
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const { email, password } = body as {
-      email?: string;
-      password?: string;
-    };
+    const { email, password } = await request.json();
 
     if (!email || !password) {
-      return NextResponse.json({ error: 'กรุณากรอกอีเมลและรหัสผ่าน' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'กรุณากรอกอีเมลและรหัสผ่าน' },
+        { status: 400 }
+      );
     }
 
-    // ✅ ไม่ต้องส่ง department แล้ว: หา user จาก email อย่างเดียว
     const result = await query(
-      'SELECT * FROM x_socrm.users WHERE email = $1 AND is_active = true',
+      'SELECT user_id, email, password_hash, full_name, department, role, allowed_departments, is_active FROM x_socrm.users WHERE email = $1',
       [email]
     );
 
@@ -28,32 +25,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // กันกรณีมี email ซ้ำหลายแผนก (ไม่ควรเกิด แต่ป้องกันไว้)
-    if (result.rows.length > 1) {
+    const user = result.rows[0];
+
+    if (!user.is_active) {
       return NextResponse.json(
-        { error: 'พบบัญชีผู้ใช้อีเมลนี้มากกว่า 1 แผนก กรุณาติดต่อ Admin เพื่อจัดการข้อมูล' },
-        { status: 409 }
+        { error: 'บัญชีของคุณถูกระงับการใช้งาน' },
+        { status: 403 }
       );
     }
 
-    const user = result.rows[0];
+    const isValidPassword = await comparePassword(password, user.password_hash);
 
-    // ✅ ตรวจรหัสผ่าน
-    const isValid = await bcrypt.compare(String(password), String(user.password_hash));
-    if (!isValid) {
+    if (!isValidPassword) {
       return NextResponse.json(
         { error: 'อีเมลหรือรหัสผ่านไม่ถูกต้อง' },
         { status: 401 }
       );
     }
 
-    // ✅ token จะเก็บ department จาก DB อัตโนมัติ
     const token = generateToken({
       user_id: user.user_id,
       email: user.email,
       department: user.department,
       role: user.role,
       full_name: user.full_name,
+      allowed_departments: Array.isArray(user.allowed_departments)
+        ? user.allowed_departments
+        : undefined,
     });
 
     const response = NextResponse.json({
@@ -64,6 +62,9 @@ export async function POST(request: NextRequest) {
         full_name: user.full_name,
         department: user.department,
         role: user.role,
+        allowed_departments: Array.isArray(user.allowed_departments)
+          ? user.allowed_departments
+          : undefined,
       },
     });
 
@@ -78,9 +79,6 @@ export async function POST(request: NextRequest) {
     return response;
   } catch (error) {
     console.error('Login error:', error);
-    return NextResponse.json(
-      { error: 'เกิดข้อผิดพลาดในการเข้าสู่ระบบ' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'เกิดข้อผิดพลาด' }, { status: 500 });
   }
 }

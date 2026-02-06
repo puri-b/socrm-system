@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query, getClient } from '@/lib/db';
-import { getUserFromRequest } from '@/lib/auth';
+import { getUserFromRequest, canAccessDepartment } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
@@ -59,7 +59,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Customer ID required' }, { status: 400 });
     }
 
-    // Ensure the user can access the customer's department
     const cust = await client.query(
       'SELECT customer_id, department FROM x_socrm.customers WHERE customer_id = $1',
       [customer_id]
@@ -69,11 +68,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
     }
 
-    if (user.role !== 'admin' && cust.rows[0].department !== user.department) {
+    if (!canAccessDepartment(user, String(cust.rows[0].department))) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    // Allow assigning the contact to another sales person (within the same department for non-admin)
     const assignedSalesPersonId = sales_person_id ? Number(sales_person_id) : user.user_id;
 
     if (sales_person_id) {
@@ -86,7 +84,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Sales person not found' }, { status: 400 });
       }
 
-      if (user.role !== 'admin' && sp.rows[0].department !== user.department) {
+      if (!canAccessDepartment(user, String(sp.rows[0].department))) {
         return NextResponse.json(
           { error: 'Access denied (sales person department mismatch)' },
           { status: 403 }
@@ -122,7 +120,7 @@ export async function POST(request: NextRequest) {
       }
 
       if (quotation_amount) {
-        updateQuery += `, contract_value = $${paramCount}`;
+        updateQuery += `, quotation_amount = $${paramCount}`;
         updateParams.push(quotation_amount);
         paramCount++;
       }
@@ -134,14 +132,10 @@ export async function POST(request: NextRequest) {
     }
 
     await client.query('COMMIT');
-
-    return NextResponse.json({
-      success: true,
-      contact: contactResult.rows[0]
-    });
+    return NextResponse.json({ success: true, contact: contactResult.rows[0] });
   } catch (error) {
     await client.query('ROLLBACK');
-    console.error('Add contact error:', error);
+    console.error('Create contact history error:', error);
     return NextResponse.json({ error: 'เกิดข้อผิดพลาด' }, { status: 500 });
   } finally {
     client.release();

@@ -8,8 +8,14 @@ export interface UserPayload {
   user_id: number;
   email: string;
   department: string;
-  role: 'user' | 'manager' | 'admin';
+  role: 'user' | 'manager' | 'admin' | 'digital_marketing';
   full_name: string;
+
+  /**
+   * ใช้กับ role = digital_marketing เพื่อให้เห็นข้อมูลมากกว่า 1 แผนก
+   * (แต่ไม่ใช่ทุกแผนก)
+   */
+  allowed_departments?: string[];
 }
 
 export async function hashPassword(password: string): Promise<string> {
@@ -40,7 +46,29 @@ export function getUserFromRequest(request: NextRequest): UserPayload | null {
 
 export function canAccessDepartment(user: UserPayload, department: string): boolean {
   if (user.role === 'admin') return true;
+
+  // Digital Marketing: เห็นได้หลายแผนกตามที่กำหนดไว้
+  if (user.role === 'digital_marketing') {
+    const allowed = Array.isArray(user.allowed_departments) ? user.allowed_departments : [];
+    return allowed.includes(department);
+  }
+
   return user.department === department;
+}
+
+/**
+ * คืนรายการแผนกที่ user สามารถเข้าถึงได้
+ * - admin: null (หมายถึงทั้งหมด)
+ * - digital_marketing: array ของแผนกที่กำหนด
+ * - อื่นๆ: array 1 ค่า (แผนกตัวเอง)
+ */
+export function getAccessibleDepartments(user: UserPayload): string[] | null {
+  if (user.role === 'admin') return null;
+  if (user.role === 'digital_marketing') {
+    const allowed = Array.isArray(user.allowed_departments) ? user.allowed_departments : [];
+    return allowed;
+  }
+  return [user.department];
 }
 
 export function canManageUsers(user: UserPayload): boolean {
