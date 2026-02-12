@@ -103,18 +103,27 @@ export default function CustomersPage() {
   const [serviceFilter, setServiceFilter] = useState('all');
   const [filterServices, setFilterServices] = useState<any[]>([]);
 
-  const LEAD_SOURCES = useMemo(
-    () => [
-      'Offline - Callout',
-      'Offline - Connection',
-      'Online - Call in',
-      'Online - Line',
-      'Online - Leadform',
-      'Online - E-mail',
-      'Online - อื่นๆ',
-    ],
-    []
-  );
+  const LEAD_SOURCE_GROUPS = useMemo(
+  () => ({
+    OFFLINE_ALL: 'OFFLINE_ALL',
+    ONLINE_ALL: 'ONLINE_ALL',
+  }),
+  []
+);
+
+const LEAD_SOURCES = useMemo(
+  () => [
+    'Offline - Callout',
+    'Offline - Connection',
+    'Online - Call in',
+    'Online - Line',
+    'Online - Leadform',
+    'Online - E-mail',
+    'Online - อื่นๆ',
+  ],
+  []
+);
+
 
   const DEPARTMENTS = useMemo(
     () => [
@@ -198,7 +207,16 @@ export default function CustomersPage() {
     let filtered = customers;
 
     if (statusFilter !== 'all') filtered = filtered.filter((c) => c.lead_status === statusFilter);
-    if (leadSourceFilter !== 'all') filtered = filtered.filter((c) => c.lead_source === leadSourceFilter);
+    if (leadSourceFilter !== 'all') {
+  if (leadSourceFilter === LEAD_SOURCE_GROUPS.OFFLINE_ALL) {
+    filtered = filtered.filter((c) => (c.lead_source || '').startsWith('Offline -'));
+  } else if (leadSourceFilter === LEAD_SOURCE_GROUPS.ONLINE_ALL) {
+    filtered = filtered.filter((c) => (c.lead_source || '').startsWith('Online -'));
+  } else {
+    filtered = filtered.filter((c) => c.lead_source === leadSourceFilter);
+  }
+}
+
     if (salesPersonFilter !== 'all') filtered = filtered.filter((c) => c.sales_person_id === parseInt(salesPersonFilter));
     if (qualityLeadFilter !== 'all') {
       const isQuality = qualityLeadFilter === 'quality';
@@ -403,17 +421,23 @@ export default function CustomersPage() {
 
           {/* lead source */}
           <select
-            value={leadSourceFilter}
-            onChange={(e) => setLeadSourceFilter(e.target.value)}
-            className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"
-          >
-            <option value="all">แหล่งที่มาทั้งหมด</option>
-            {LEAD_SOURCES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
+  value={leadSourceFilter}
+  onChange={(e) => setLeadSourceFilter(e.target.value)}
+  className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"
+>
+  <option value="all">แหล่งที่มาทั้งหมด</option>
+  <option value={LEAD_SOURCE_GROUPS.OFFLINE_ALL}>Offline ทั้งหมด</option>
+  <option value={LEAD_SOURCE_GROUPS.ONLINE_ALL}>Online ทั้งหมด</option>
+
+  <option disabled value="__sep__">──────────</option>
+
+  {LEAD_SOURCES.map((s) => (
+    <option key={s} value={s}>
+      {s}
+    </option>
+  ))}
+</select>
+
 
           {/* created date from */}
           <div className="w-full">
