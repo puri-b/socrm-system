@@ -30,15 +30,22 @@ async function logActivity(params: {
   }
 }
 
+/**
+ * รองรับทั้ง "done" และ "completed" เพื่อไม่กระทบข้อมูล/โค้ดเดิม
+ */
 const ALLOWED_STATUSES = new Set([
   'pending',
   'in_progress',
   'done',
+  'completed',
   'cancelled',
   'postponed',
 ]);
 
-const RESTRICTED_STATUSES = new Set(['done', 'cancelled', 'postponed']); // ต้องขออนุมัติ
+/**
+ * สถานะที่ต้องขออนุมัติ
+ */
+const RESTRICTED_STATUSES = new Set(['done', 'completed', 'cancelled', 'postponed']); // ต้องขออนุมัติ
 
 export async function GET(request: NextRequest) {
   try {
@@ -159,7 +166,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Determine customer department to authorize
-    const custRes = await query(`SELECT customer_id, department, company_name FROM x_socrm.customers WHERE customer_id = $1`, [Number(customer_id)]);
+    const custRes = await query(
+      `SELECT customer_id, department, company_name FROM x_socrm.customers WHERE customer_id = $1`,
+      [Number(customer_id)]
+    );
     if (custRes.rows.length === 0) return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
 
     const customerDept = String(custRes.rows[0].department);
@@ -270,13 +280,19 @@ export async function PATCH(request: NextRequest) {
       }
 
       const requiredApproverIds = [Number(task.created_by)];
+
+      /**
+       * ✅ แก้ 500 array_in:
+       * - ถ้าคอลัมน์ required_approver_ids เป็น int[] ให้ส่งเป็น array จริง
+       * - ใส่ cast ::int[] เพื่อชัดเจน
+       */
       const reqRes = await query(
         `
         INSERT INTO x_socrm.task_status_requests (task_id, requested_status, note, requested_by, required_approver_ids)
-        VALUES ($1, $2, $3, $4, $5)
+        VALUES ($1, $2, $3, $4, $5::int[])
         RETURNING *
         `,
-        [Number(task_id), newStatus, note || null, user.user_id, JSON.stringify(requiredApproverIds)]
+        [Number(task_id), newStatus, note || null, user.user_id, requiredApproverIds]
       );
 
       await logActivity({

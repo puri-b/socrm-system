@@ -2,6 +2,22 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query, getClient } from '@/lib/db';
 import { getUserFromRequest, canAccessDepartment } from '@/lib/auth';
 
+// --- helpers (กันเคสส่งค่าเป็น "" แล้วชน numeric ใน Postgres) ---
+function toNullableString(v: any) {
+  if (v === undefined || v === null) return null;
+  const s = String(v).trim();
+  return s.length === 0 ? null : s;
+}
+
+function toNullableNumber(v: any) {
+  if (v === undefined || v === null) return null;
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+  const s = String(v).trim();
+  if (!s) return null;
+  const n = Number(s.replace(/,/g, ''));
+  return Number.isFinite(n) ? n : null;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const user = getUserFromRequest(request);
@@ -42,18 +58,18 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await request.json();
-    const {
-      customer_id,
-      contact_date,
-      contact_subject,
-      contact_channel,
-      customer_contact_person,
-      sales_person_id,
-      quotation_amount,
-      next_followup_date,
-      notes,
-      lead_status_updated
-    } = data;
+
+    // ✅ sanitize input (รองรับค่าที่มาจากฟอร์มเป็น "")
+    const customer_id = toNullableNumber(data?.customer_id);
+    const contact_date = toNullableString(data?.contact_date);
+    const contact_subject = toNullableString(data?.contact_subject);
+    const contact_channel = toNullableString(data?.contact_channel);
+    const customer_contact_person = toNullableString(data?.customer_contact_person);
+    const sales_person_id = toNullableNumber(data?.sales_person_id);
+    const quotation_amount = toNullableNumber(data?.quotation_amount);
+    const next_followup_date = toNullableString(data?.next_followup_date);
+    const notes = toNullableString(data?.notes);
+    const lead_status_updated = toNullableString(data?.lead_status_updated);
 
     if (!customer_id) {
       return NextResponse.json({ error: 'Customer ID required' }, { status: 400 });
@@ -102,33 +118,28 @@ export async function POST(request: NextRequest) {
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       RETURNING *`,
       [
-        customer_id, contact_date, contact_subject, contact_channel,
-        customer_contact_person, assignedSalesPersonId, quotation_amount,
-        next_followup_date, notes, lead_status_updated
+        Number(customer_id),
+        contact_date,
+        contact_subject,
+        contact_channel,
+        customer_contact_person,
+        assignedSalesPersonId,
+        quotation_amount,
+        next_followup_date,
+        notes,
+        lead_status_updated,
       ]
     );
 
-    if (lead_status_updated || quotation_amount) {
-      let updateQuery = 'UPDATE x_socrm.customers SET updated_at = CURRENT_TIMESTAMP';
-      const updateParams: any[] = [];
-      let paramCount = 1;
-
-      if (lead_status_updated) {
-        updateQuery += `, lead_status = $${paramCount}`;
-        updateParams.push(lead_status_updated);
-        paramCount++;
-      }
-
-      if (quotation_amount) {
-        updateQuery += `, quotation_amount = $${paramCount}`;
-        updateParams.push(quotation_amount);
-        paramCount++;
-      }
-
-      updateQuery += ` WHERE customer_id = $${paramCount}`;
-      updateParams.push(customer_id);
-
-      await client.query(updateQuery, updateParams);
+    // ✅ อัปเดตสถานะ lead ที่หน้า Customer (ถ้ามี) —
+    // หมายเหตุ: ไม่อัปเดต quotation_amount ในตาราง customers เพราะหลายฐานข้อมูลไม่มีคอลัมน์นี้
+    if (lead_status_updated) {
+      await client.query(
+        `UPDATE x_socrm.customers
+         SET lead_status = $1, updated_at = CURRENT_TIMESTAMP
+         WHERE customer_id = $2`,
+        [lead_status_updated, Number(customer_id)]
+      );
     }
 
     await client.query('COMMIT');
