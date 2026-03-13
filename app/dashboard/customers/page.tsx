@@ -820,6 +820,7 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
     business_type: '',
     budget: '',
     contact_person: '',
+    registration_info: '',
     lead_source: '',
     search_keyword: '',
     is_quality_lead: true,
@@ -914,7 +915,7 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
   ...formData,
-  services: (formData.selectedServices || [])
+  customer_services: (formData.selectedServices || [])
     .filter((s: any) => s?.service_id)
     .map((s: any) => ({
       service_id: Number(s.service_id),
@@ -998,6 +999,15 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
                 value={formData.contact_person}
                 onChange={(e) => setFormData({ ...formData, contact_person: e.target.value })}
                 className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </Field>
+
+            <Field label="ทุนจดทะเบียน">
+              <input
+                value={formData.registration_info}
+                onChange={(e) => setFormData({ ...formData, registration_info: e.target.value })}
+                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="เช่น 5,000,000 บาท"
               />
             </Field>
 
@@ -1350,7 +1360,7 @@ function EditCustomerModal({ customer, users, leadSources, onClose, onSuccess }:
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
-          services: (formData.selectedServices || [])
+          customer_services: (formData.selectedServices || [])
             .filter((s: any) => s?.service_id)
             .map((s: any) => ({
               service_id: Number(s.service_id),

@@ -147,7 +147,7 @@ export async function POST(request: NextRequest) {
     const contract_end_date = toNullableString(data?.contract_end_date);
     const department = toNullableString(data?.department);
     const created_at_date = toNullableString(data?.created_at_date);
-    const customer_services = data?.customer_services;
+    const customer_services = data?.customer_services ?? data?.services;
 
     if (!company_name) {
       return NextResponse.json({ error: 'ชื่อบริษัทจำเป็นต้องระบุ' }, { status: 400 });
