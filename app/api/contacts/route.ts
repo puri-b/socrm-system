@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query, getClient } from '@/lib/db';
 import { getUserFromRequest, canAccessDepartment } from '@/lib/auth';
 
-// --- helpers (กันเคสส่งค่าเป็น "" แล้วชน numeric ใน Postgres) ---
 function toNullableString(v: any) {
   if (v === undefined || v === null) return null;
   const s = String(v).trim();
@@ -59,7 +58,6 @@ export async function POST(request: NextRequest) {
 
     const data = await request.json();
 
-    // ✅ sanitize input (รองรับค่าที่มาจากฟอร์มเป็น "")
     const customer_id = toNullableNumber(data?.customer_id);
     const contact_date = toNullableString(data?.contact_date);
     const contact_subject = toNullableString(data?.contact_subject);
@@ -76,7 +74,9 @@ export async function POST(request: NextRequest) {
     }
 
     const cust = await client.query(
-      'SELECT customer_id, department FROM x_socrm.customers WHERE customer_id = $1',
+      `SELECT customer_id, department, contract_value
+       FROM x_socrm.customers
+       WHERE customer_id = $1`,
       [customer_id]
     );
 
@@ -84,7 +84,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
     }
 
-    if (!canAccessDepartment(user, String(cust.rows[0].department))) {
+    const customerDept = String(cust.rows[0].department);
+
+    if (!canAccessDepartment(user, customerDept)) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
@@ -131,8 +133,6 @@ export async function POST(request: NextRequest) {
       ]
     );
 
-    // ✅ อัปเดตสถานะ lead ที่หน้า Customer (ถ้ามี) —
-    // หมายเหตุ: ไม่อัปเดต quotation_amount ในตาราง customers เพราะหลายฐานข้อมูลไม่มีคอลัมน์นี้
     if (lead_status_updated) {
       await client.query(
         `UPDATE x_socrm.customers
@@ -142,8 +142,75 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (quotation_amount !== null) {
+      await client.query(
+        `UPDATE x_socrm.customers
+         SET contract_value = $1, updated_at = CURRENT_TIMESTAMP
+         WHERE customer_id = $2`,
+        [quotation_amount, Number(customer_id)]
+      );
+    }
+
+    let createdTask: any = null;
+
+    if (next_followup_date) {
+      const taskResult = await client.query(
+        `INSERT INTO x_socrm.tasks (
+          customer_id,
+          project_id,
+          assigned_to,
+          created_by,
+          title,
+          description,
+          task_date,
+          status,
+          department,
+          assigned_by
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        RETURNING *`,
+        [
+          Number(customer_id),
+          null,
+          user.user_id,
+          user.user_id,
+          contact_subject || 'ติดตามลูกค้า',
+          notes,
+          next_followup_date,
+          'pending',
+          customerDept,
+          user.user_id,
+        ]
+      );
+
+      createdTask = taskResult.rows[0] ?? null;
+
+      if (createdTask) {
+        await client.query(
+          `INSERT INTO x_socrm.activity_logs (entity_type, entity_id, action, performed_by, message, meta)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [
+            'task',
+            createdTask.task_id,
+            'create',
+            user.user_id,
+            `สร้างงานติดตามอัตโนมัติจากการบันทึกการติดต่อ: ${createdTask.title}`,
+            JSON.stringify({
+              source: 'contact_history_followup',
+              customer_id: Number(customer_id),
+              contact_id: contactResult.rows[0]?.contact_id ?? null,
+              next_followup_date,
+            }),
+          ]
+        );
+      }
+    }
+
     await client.query('COMMIT');
-    return NextResponse.json({ success: true, contact: contactResult.rows[0] });
+    return NextResponse.json({
+      success: true,
+      contact: contactResult.rows[0],
+      task: createdTask,
+    });
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Create contact history error:', error);

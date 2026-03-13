@@ -1,6 +1,76 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query, getClient } from '@/lib/db';
-import { getUserFromRequest, canAccessDepartment } from '@/lib/auth';
+import { getClient, query } from '@/lib/db';
+import { canAccessDepartment, getUserFromRequest } from '@/lib/auth';
+
+function toNullableString(v: any) {
+  if (v === undefined || v === null) return null;
+  const s = String(v).trim();
+  return s.length === 0 ? null : s;
+}
+
+function toNullableNumber(v: any) {
+  if (v === undefined || v === null) return null;
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+  const s = String(v).trim();
+  if (!s) return null;
+  const n = Number(s.replace(/,/g, ''));
+  return Number.isFinite(n) ? n : null;
+}
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const user = getUserFromRequest(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const customerId = params.id;
+
+    const result = await query(
+      `SELECT
+         c.*,
+         u.full_name AS sales_person_name,
+         COALESCE(
+           jsonb_agg(
+             DISTINCT jsonb_build_object(
+               'service_id', s.service_id,
+               'service_name', s.service_name,
+               'requires_quantity', s.requires_quantity,
+               'quantity_unit', s.quantity_unit,
+               'quantity', cs.quantity
+             )
+           ) FILTER (WHERE s.service_id IS NOT NULL),
+           '[]'::jsonb
+         ) AS customer_services,
+         NULLIF(string_agg(DISTINCT s.service_name, ', '), '') AS customer_service_display
+       FROM x_socrm.customers c
+       LEFT JOIN x_socrm.users u ON c.sales_person_id = u.user_id
+       LEFT JOIN x_socrm.customer_services cs ON cs.customer_id = c.customer_id
+       LEFT JOIN x_socrm.services s ON s.service_id = cs.service_id
+       WHERE c.customer_id = $1
+       GROUP BY c.customer_id, u.full_name`,
+      [customerId]
+    );
+
+    if (result.rows.length === 0) {
+      return NextResponse.json({ error: 'ไม่พบข้อมูลลูกค้า' }, { status: 404 });
+    }
+
+    const customer = result.rows[0];
+
+    if (!canAccessDepartment(user, customer.department)) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
+
+    return NextResponse.json({ success: true, customer });
+  } catch (error) {
+    console.error('Get customer error:', error);
+    return NextResponse.json({ error: 'เกิดข้อผิดพลาดในการดึงข้อมูลลูกค้า' }, { status: 500 });
+  }
+}
 
 export async function PUT(
   request: NextRequest,
@@ -23,24 +93,24 @@ export async function PUT(
 
     const cleanData = {
       company_name: data.company_name,
-      email: data.email || null,
-      phone: data.phone || null,
-      location: data.location || null,
-      registration_info: data.registration_info || null,
-      business_type: data.business_type || null,
-      budget: data.budget ? parseFloat(data.budget) : null,
-      contact_person: data.contact_person || null,
-      service_interested: data.service_interested || null,
-      lead_source: data.lead_source || null,
-      search_keyword: data.search_keyword || null,
+      email: toNullableString(data.email),
+      phone: toNullableString(data.phone),
+      location: toNullableString(data.location),
+      registration_info: toNullableString(data.registration_info),
+      business_type: toNullableString(data.business_type),
+      budget: toNullableNumber(data.budget),
+      contact_person: toNullableString(data.contact_person),
+      service_interested: toNullableString(data.service_interested),
+      lead_source: toNullableString(data.lead_source),
+      search_keyword: toNullableString(data.search_keyword),
       is_quality_lead: data.is_quality_lead || false,
       sales_person_id: data.sales_person_id ? parseInt(data.sales_person_id) : null,
       lead_status: data.lead_status || 'Lead',
-      contract_value: data.contract_value ? parseFloat(data.contract_value) : null,
-      pain_points: data.pain_points || null,
-      contract_duration: data.contract_duration || null,
-      contract_start_date: data.contract_start_date || null,
-      contract_end_date: data.contract_end_date || null,
+      contract_value: toNullableNumber(data.contract_value),
+      pain_points: toNullableString(data.pain_points),
+      contract_duration: toNullableString(data.contract_duration),
+      contract_start_date: toNullableString(data.contract_start_date),
+      contract_end_date: toNullableString(data.contract_end_date),
     };
 
     const existingCustomer = await query(
@@ -109,10 +179,8 @@ export async function PUT(
         ]
       );
 
-      // 1) ล้างบริการเก่า
       await client.query('DELETE FROM x_socrm.customer_services WHERE customer_id = $1', [customerId]);
 
-      // 2) Insert บริการใหม่
       const svcRows = incomingServices
         .filter((s: any) => s && s.service_id)
         .map((s: any) => ({

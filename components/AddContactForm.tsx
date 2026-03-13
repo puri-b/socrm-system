@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 interface AddContactFormProps {
   customerId: number;
@@ -17,9 +17,10 @@ export default function AddContactForm({ customerId, onSuccess }: AddContactForm
     quotation_amount: '',
     next_followup_date: '',
     notes: '',
-    lead_status_updated: ''
+    lead_status_updated: '',
   });
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -28,6 +29,78 @@ export default function AddContactForm({ customerId, onSuccess }: AddContactForm
       setUser(JSON.parse(userData));
     }
   }, []);
+
+  useEffect(() => {
+    fetchCustomerDefaultQuotation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customerId]);
+
+  const fetchCustomerDefaultQuotation = async () => {
+    try {
+      setInitialLoading(true);
+
+      const response = await fetch(`/api/customers/${customerId}`, {
+        method: 'GET',
+        cache: 'no-store',
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        const defaultQuotation =
+          data?.customer?.contract_value !== null && data?.customer?.contract_value !== undefined
+            ? String(data.customer.contract_value)
+            : '';
+
+        setFormData((prev) => ({
+          ...prev,
+          quotation_amount: defaultQuotation,
+        }));
+      }
+    } catch (err) {
+      console.error('Failed to load default quotation amount:', err);
+    } finally {
+      setInitialLoading(false);
+    }
+  };
+
+  const resetFormWithLatestQuotation = async () => {
+    try {
+      const response = await fetch(`/api/customers/${customerId}`, {
+        method: 'GET',
+        cache: 'no-store',
+      });
+
+      const data = await response.json();
+      const defaultQuotation =
+        response.ok && data?.customer?.contract_value !== null && data?.customer?.contract_value !== undefined
+          ? String(data.customer.contract_value)
+          : '';
+
+      setFormData({
+        contact_date: new Date().toISOString().split('T')[0],
+        contact_subject: '',
+        contact_channel: '',
+        customer_contact_person: '',
+        quotation_amount: defaultQuotation,
+        next_followup_date: '',
+        notes: '',
+        lead_status_updated: '',
+      });
+    } catch (err) {
+      console.error('Failed to reset form with latest quotation:', err);
+      setFormData({
+        contact_date: new Date().toISOString().split('T')[0],
+        contact_subject: '',
+        contact_channel: '',
+        customer_contact_person: '',
+        quotation_amount: '',
+        next_followup_date: '',
+        notes: '',
+        lead_status_updated: '',
+      });
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,24 +113,15 @@ export default function AddContactForm({ customerId, onSuccess }: AddContactForm
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
-          customer_id: customerId
-        })
+          customer_id: customerId,
+        }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
+        await resetFormWithLatestQuotation();
         onSuccess();
-        setFormData({
-          contact_date: new Date().toISOString().split('T')[0],
-          contact_subject: '',
-          contact_channel: '',
-          customer_contact_person: '',
-          quotation_amount: '',
-          next_followup_date: '',
-          notes: '',
-          lead_status_updated: ''
-        });
       } else {
         setError(data.error || 'เกิดข้อผิดพลาด');
       }
@@ -67,6 +131,14 @@ export default function AddContactForm({ customerId, onSuccess }: AddContactForm
       setLoading(false);
     }
   };
+
+  if (initialLoading) {
+    return (
+      <div className="bg-gray-50 p-4 rounded-lg mb-6">
+        <div className="text-sm text-gray-500">กำลังโหลดข้อมูลล่าสุด...</div>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="bg-gray-50 p-4 rounded-lg mb-6 space-y-4">
@@ -162,7 +234,7 @@ export default function AddContactForm({ customerId, onSuccess }: AddContactForm
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            มูลค่าการเสนอราคา (หากยังไม่เสนอให้ใส่ 0)
+            มูลค่าการเสนอราคา (ระบบจะดึงค่าล่าสุดมาให้ และแก้ไขได้)
           </label>
           <input
             type="number"
