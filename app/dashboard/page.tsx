@@ -3,132 +3,199 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 
-// --- Internal SVG Icons (ไม่ต้อง Install เพิ่ม) ---
 const Icons = {
   Lead: () => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <line x1="19" y1="8" x2="19" y2="14" />
+      <line x1="22" y1="11" x2="16" y2="11" />
+    </svg>
   ),
   Potential: () => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+    </svg>
   ),
   Prospect: () => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <circle cx="12" cy="12" r="6" />
+      <circle cx="12" cy="12" r="2" />
+    </svg>
   ),
   Pipeline: () => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/><path d="m9.05 4.1 .5 4.65"/><path d="m14.95 4.1-.5 4.65"/></svg>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m12 14 4-4" />
+      <path d="M3.34 19a10 10 0 1 1 17.32 0" />
+      <path d="m9.05 4.1 .5 4.65" />
+      <path d="m14.95 4.1-.5 4.65" />
+    </svg>
   ),
   PO: () => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="m9 15 2 2 4-4"/></svg>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+      <polyline points="14 2 14 8 20 8" />
+      <path d="m9 15 2 2 4-4" />
+    </svg>
   ),
   Close: () => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <line x1="15" y1="9" x2="9" y2="15" />
+      <line x1="9" y1="9" x2="15" y2="15" />
+    </svg>
   ),
   Clock: () => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+    </svg>
   ),
   Refresh: () => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><polyline points="21 3 21 8 16 8"/></svg>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+      <polyline points="21 3 21 8 16 8" />
+    </svg>
   ),
   Check: () => (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+      <polyline points="22 4 12 14.01 9 11.01" />
+    </svg>
   ),
   Plus: () => (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="12" y1="5" x2="12" y2="19" />
+      <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
   ),
   Database: () => (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"/></svg>
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <ellipse cx="12" cy="5" rx="9" ry="3" />
+      <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+      <path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3" />
+    </svg>
   ),
   Filter: () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" /></svg>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+    </svg>
   ),
   Search: () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="11" cy="11" r="8" />
+      <path d="m21 21-4.3-4.3" />
+    </svg>
   ),
   Calendar: () => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+      <line x1="16" y1="2" x2="16" y2="6" />
+      <line x1="8" y1="2" x2="8" y2="6" />
+      <line x1="3" y1="10" x2="21" y2="10" />
+    </svg>
   ),
 };
 
+type User = {
+  user_id: number;
+  full_name: string;
+  department: string;
+  role: string;
+};
+
+type Customer = {
+  customer_id: number;
+  company_name?: string;
+  email?: string;
+  phone?: string;
+  lead_status?: string;
+  contract_value?: string | number;
+  lead_source?: string;
+  sales_person_id?: number;
+  is_quality_lead?: boolean;
+  department?: string;
+  created_at?: string;
+  customer_services?: Array<{ service_id?: number; service_name?: string }>;
+};
+
+type Task = {
+  task_id: number;
+  customer_id?: number | null;
+  title?: string;
+  description?: string;
+  task_date?: string;
+  status?: string;
+  company_name?: string;
+  assigned_to_name?: string;
+};
+
+const DEPARTMENTS = [
+  { code: 'LBD', name: 'LBD' },
+  { code: 'LBA', name: 'LBA' },
+  { code: 'CR', name: 'CR' },
+  { code: 'LM', name: 'LM' },
+  { code: 'DS', name: 'DS' },
+  { code: 'SN', name: 'SN' },
+];
+
+const LEAD_SOURCE_GROUPS = {
+  OFFLINE_ALL: 'OFFLINE_ALL',
+  ONLINE_ALL: 'ONLINE_ALL',
+} as const;
+
+const LEAD_SOURCES = [
+  'Offline - Callout',
+  'Offline - Connection',
+  'Online - Call in',
+  'Online - Line',
+  'Online - Leadform',
+  'Online - E-mail',
+  'Online - อื่นๆ',
+];
+
+const normalizeDate = (value?: string | null) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
+const isTaskOpen = (status?: string) => ['pending', 'in_progress'].includes(String(status || '').toLowerCase());
+
 export default function DashboardPage() {
-  const [user, setUser] = useState<any>(null);
-  const [customers, setCustomers] = useState<any[]>([]);
-  const [filteredCustomers, setFilteredCustomers] = useState<any[]>([]);
-  const [tasks, setTasks] = useState<any[]>([]);
-  const [filteredTasks, setFilteredTasks] = useState<any[]>([]);
+  const [user, setUser] = useState<User | null>(null);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [filterServices, setFilterServices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [stats, setStats] = useState({
-    totalCustomers: 0,
-    leadCount: 0,
-    leadValue: 0,
-    potentialCount: 0,
-    potentialValue: 0,
-    prospectCount: 0,
-    prospectValue: 0,
-    pipelineCount: 0,
-    pipelineValue: 0,
-    poCount: 0,
-    poValue: 0,
-    closeCount: 0,
-    closeValue: 0,
-    pendingTasks: 0,
-    inProgressTasks: 0,
-    completedTasks: 0,
-  });
-
-  // filters (ยกมาจากหน้า customers)
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [leadSourceFilter, setLeadSourceFilter] = useState('all');
   const [salesPersonFilter, setSalesPersonFilter] = useState('all');
   const [qualityLeadFilter, setQualityLeadFilter] = useState('all');
   const [departmentFilter, setDepartmentFilter] = useState('all');
+  const [serviceFilter, setServiceFilter] = useState('all');
   const [createdFrom, setCreatedFrom] = useState('');
   const [createdTo, setCreatedTo] = useState('');
-  const [serviceFilter, setServiceFilter] = useState('all');
-
-  const LEAD_SOURCE_GROUPS = useMemo(
-    () => ({
-      OFFLINE_ALL: 'OFFLINE_ALL',
-      ONLINE_ALL: 'ONLINE_ALL',
-    }),
-    []
-  );
-
-  const LEAD_SOURCES = useMemo(
-    () => [
-      'Offline - Callout',
-      'Offline - Connection',
-      'Online - Call in',
-      'Online - Line',
-      'Online - Leadform',
-      'Online - E-mail',
-      'Online - อื่นๆ',
-    ],
-    []
-  );
-
-  const DEPARTMENTS = useMemo(
-    () => [
-      { code: 'LBD', name: 'LBD' },
-      { code: 'LBA', name: 'LBA' },
-      { code: 'CR', name: 'CR' },
-      { code: 'LM', name: 'LM' },
-      { code: 'DS', name: 'DS' },
-      { code: 'SN', name: 'SN' },
-    ],
-    []
-  );
 
   useEffect(() => {
-    const userData = localStorage.getItem('user');
-    if (userData) {
-      const parsedUser = JSON.parse(userData);
-      setUser(parsedUser);
-      fetchInitialData(parsedUser);
+    const raw = localStorage.getItem('user');
+    if (!raw) {
+      setLoading(false);
+      return;
     }
+
+    const parsed = JSON.parse(raw);
+    setUser(parsed);
+
+    Promise.all([fetchCustomers(), fetchTasks(), fetchUsers(), fetchFilterServices(parsed, 'all')]).finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
@@ -136,71 +203,58 @@ export default function DashboardPage() {
     fetchFilterServices(user, departmentFilter);
   }, [departmentFilter, user]);
 
-  useEffect(() => {
-    applyDashboardFilters();
-  }, [
-    customers,
-    tasks,
-    user,
-    statusFilter,
-    searchTerm,
-    leadSourceFilter,
-    salesPersonFilter,
-    qualityLeadFilter,
-    departmentFilter,
-    serviceFilter,
-    createdFrom,
-    createdTo,
-  ]);
-
-  const fetchInitialData = async (currentUser: any) => {
-    setLoading(true);
+  const fetchCustomers = async () => {
     try {
-      const [customersRes, tasksRes, usersRes] = await Promise.all([
-        fetch('/api/customers'),
-        fetch('/api/tasks'),
-        fetch('/api/users'),
-      ]);
-
-      const customersData = await customersRes.json();
-      const tasksData = await tasksRes.json();
-      const usersData = await usersRes.json();
-
-      setCustomers(customersData.customers || []);
-      setTasks(tasksData.tasks || []);
-      setUsers(usersData.users || []);
-      await fetchFilterServices(currentUser, 'all');
-    } catch (e) {
-      console.error('Failed to fetch dashboard data:', e);
-    } finally {
-      setLoading(false);
+      const res = await fetch('/api/customers');
+      const data = await res.json();
+      setCustomers(data.customers || []);
+    } catch (error) {
+      console.error('Failed to fetch customers:', error);
+      setCustomers([]);
     }
   };
 
-  const fetchFilterServices = async (u: any, deptFilter: string) => {
+  const fetchTasks = async () => {
     try {
-      if (!u) return;
+      const res = await fetch('/api/tasks');
+      const data = await res.json();
+      setTasks(data.tasks || []);
+    } catch (error) {
+      console.error('Failed to fetch tasks:', error);
+      setTasks([]);
+    }
+  };
 
+  const fetchUsers = async () => {
+    try {
+      const res = await fetch('/api/users');
+      const data = await res.json();
+      setUsers(data.users || []);
+    } catch (error) {
+      console.error('Failed to fetch users:', error);
+      setUsers([]);
+    }
+  };
+
+  const fetchFilterServices = async (currentUser: User, deptFilter: string) => {
+    try {
       let url = '/api/services';
-      if ((u.role === 'admin' || u.role === 'digital_marketing') && deptFilter !== 'all') {
+      if ((currentUser.role === 'admin' || currentUser.role === 'digital_marketing') && deptFilter !== 'all') {
         url = `/api/services?department=${encodeURIComponent(deptFilter)}`;
       }
-
       const res = await fetch(url);
       const data = await res.json();
       setFilterServices(data.services || []);
-    } catch (e) {
-      console.error('Failed to fetch services(filter):', e);
+    } catch (error) {
+      console.error('Failed to fetch services(filter):', error);
       setFilterServices([]);
     }
   };
 
-  const applyDashboardFilters = () => {
+  const filteredCustomers = useMemo(() => {
     let filtered = [...customers];
 
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter((c) => c.lead_status === statusFilter);
-    }
+    if (statusFilter !== 'all') filtered = filtered.filter((c) => c.lead_status === statusFilter);
 
     if (leadSourceFilter !== 'all') {
       if (leadSourceFilter === LEAD_SOURCE_GROUPS.OFFLINE_ALL) {
@@ -218,7 +272,7 @@ export default function DashboardPage() {
 
     if (qualityLeadFilter !== 'all') {
       const isQuality = qualityLeadFilter === 'quality';
-      filtered = filtered.filter((c) => c.is_quality_lead === isQuality);
+      filtered = filtered.filter((c) => Boolean(c.is_quality_lead) === isQuality);
     }
 
     if ((user?.role === 'admin' || user?.role === 'digital_marketing') && departmentFilter !== 'all') {
@@ -226,17 +280,17 @@ export default function DashboardPage() {
     }
 
     if (serviceFilter !== 'all') {
-      const sid = Number(serviceFilter);
+      const serviceId = Number(serviceFilter);
       filtered = filtered.filter((c) => {
         const arr = Array.isArray(c.customer_services) ? c.customer_services : [];
-        return arr.some((x: any) => Number(x?.service_id) === sid);
+        return arr.some((s: any) => Number(s?.service_id) === serviceId);
       });
     }
 
     if (createdFrom) {
       const from = new Date(`${createdFrom}T00:00:00`).getTime();
       filtered = filtered.filter((c) => {
-        const t = c?.created_at ? new Date(c.created_at).getTime() : NaN;
+        const t = c.created_at ? new Date(c.created_at).getTime() : NaN;
         return Number.isFinite(t) && t >= from;
       });
     }
@@ -244,35 +298,42 @@ export default function DashboardPage() {
     if (createdTo) {
       const to = new Date(`${createdTo}T23:59:59`).getTime();
       filtered = filtered.filter((c) => {
-        const t = c?.created_at ? new Date(c.created_at).getTime() : NaN;
+        const t = c.created_at ? new Date(c.created_at).getTime() : NaN;
         return Number.isFinite(t) && t <= to;
       });
     }
 
-    if (searchTerm) {
-      const keyword = searchTerm.toLowerCase();
-      filtered = filtered.filter(
-        (c) =>
-          c.company_name?.toLowerCase().includes(keyword) ||
-          c.email?.toLowerCase().includes(keyword) ||
-          c.phone?.includes(searchTerm)
+    if (searchTerm.trim()) {
+      const term = searchTerm.trim().toLowerCase();
+      filtered = filtered.filter((c) =>
+        c.company_name?.toLowerCase().includes(term) ||
+        c.email?.toLowerCase().includes(term) ||
+        c.phone?.includes(searchTerm.trim())
       );
     }
 
-    setFilteredCustomers(filtered);
+    return filtered;
+  }, [customers, statusFilter, leadSourceFilter, salesPersonFilter, qualityLeadFilter, departmentFilter, serviceFilter, createdFrom, createdTo, searchTerm, user]);
 
-    const filteredCustomerIds = new Set(filtered.map((c) => Number(c.customer_id)));
-    const taskList = tasks.filter((t) => {
-      if (t.customer_id == null) return false;
-      return filteredCustomerIds.has(Number(t.customer_id));
-    });
-    setFilteredTasks(taskList);
+  const filteredCustomerIds = useMemo(() => new Set(filteredCustomers.map((c) => Number(c.customer_id))), [filteredCustomers]);
 
-    const filterStatus = (s: string) => filtered.filter((c: any) => c.lead_status === s);
-    const sumVal = (arr: any[]) => arr.reduce((sum, c) => sum + (parseFloat(c.contract_value) || 0), 0);
+  const filteredTasks = useMemo(() => {
+    return tasks.filter((task) => task.customer_id && filteredCustomerIds.has(Number(task.customer_id)));
+  }, [tasks, filteredCustomerIds]);
 
-    setStats({
-      totalCustomers: filtered.length,
+  const todayFollowUps = useMemo(() => {
+    const today = normalizeDate(new Date().toISOString());
+    return filteredTasks
+      .filter((task) => isTaskOpen(task.status) && normalizeDate(task.task_date) === today)
+      .sort((a, b) => String(a.task_date || '').localeCompare(String(b.task_date || '')));
+  }, [filteredTasks]);
+
+  const stats = useMemo(() => {
+    const filterStatus = (s: string) => filteredCustomers.filter((c) => c.lead_status === s);
+    const sumVal = (arr: Customer[]) => arr.reduce((sum, c) => sum + (parseFloat(String(c.contract_value || 0)) || 0), 0);
+
+    return {
+      totalCustomers: filteredCustomers.length,
       leadCount: filterStatus('Lead').length,
       leadValue: sumVal(filterStatus('Lead')),
       potentialCount: filterStatus('Potential').length,
@@ -285,35 +346,41 @@ export default function DashboardPage() {
       poValue: sumVal(filterStatus('PO')),
       closeCount: filterStatus('Close').length,
       closeValue: sumVal(filterStatus('Close')),
-      pendingTasks: taskList.filter((t: any) => t.status === 'pending').length,
-      inProgressTasks: taskList.filter((t: any) => t.status === 'in_progress').length,
-      completedTasks: taskList.filter((t: any) => t.status === 'completed' || t.status === 'done').length,
-    });
-  };
+      pendingTasks: filteredTasks.filter((t) => String(t.status) === 'pending').length,
+      inProgressTasks: filteredTasks.filter((t) => String(t.status) === 'in_progress').length,
+      completedTasks: filteredTasks.filter((t) => ['completed', 'done'].includes(String(t.status))).length,
+    };
+  }, [filteredCustomers, filteredTasks]);
 
-  const resetFilters = async () => {
+  const clearFilters = () => {
     setStatusFilter('all');
+    setSearchTerm('');
     setLeadSourceFilter('all');
-    setServiceFilter('all');
     setSalesPersonFilter('all');
     setQualityLeadFilter('all');
     setDepartmentFilter('all');
-    setSearchTerm('');
+    setServiceFilter('all');
     setCreatedFrom('');
     setCreatedTo('');
-
-    if (user) {
-      await fetchFilterServices(user, 'all');
-    }
   };
 
   const formatCurrency = (v: number) => new Intl.NumberFormat('th-TH').format(v);
-
+  const formatDateTime = (value?: string) => {
+    if (!value) return '—';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '—';
+    return date.toLocaleString('th-TH', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
   const formatCompactCurrency = (v: number) => {
     const abs = Math.abs(v);
     const sign = v < 0 ? '-' : '';
     const fmt = (n: number) => new Intl.NumberFormat('th-TH', { maximumFractionDigits: 1 }).format(n);
-
     if (abs >= 1_000_000_000) return `${sign}${fmt(abs / 1_000_000_000)}B`;
     if (abs >= 1_000_000) return `${sign}${fmt(abs / 1_000_000)}M`;
     if (abs >= 1_000) return `${sign}${fmt(abs / 1_000)}K`;
@@ -350,14 +417,7 @@ export default function DashboardPage() {
     );
   };
 
-  const DonutCard = ({
-    title,
-    subtitle,
-    data,
-    centerText,
-    centerSubText,
-    valueFormatter,
-  }: {
+  const DonutCard = ({ title, subtitle, data, centerText, centerSubText, valueFormatter }: {
     title: string;
     subtitle: string;
     data: { label: string; value: number; color: string }[];
@@ -417,7 +477,6 @@ export default function DashboardPage() {
               <circle cx={size / 2} cy={size / 2} r={r} fill="transparent" stroke="#e2e8f0" strokeWidth={stroke} />
               <g transform={`rotate(-90 ${size / 2} ${size / 2})`}>{segments}</g>
             </svg>
-
             <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
               <div className="text-3xl font-black text-slate-900 tracking-tight">{centerText}</div>
               <div className="text-xs text-slate-400 font-semibold mt-1">{centerSubText}</div>
@@ -428,7 +487,6 @@ export default function DashboardPage() {
             {data.map((d) => {
               const v = Number.isFinite(d.value) ? d.value : 0;
               const pct = safeTotal === 0 ? 0 : (v / safeTotal) * 100;
-
               return (
                 <div key={d.label} className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3 min-w-0">
@@ -458,12 +516,12 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8 pb-20">
+    <div className="max-w-7xl mx-auto space-y-12 pb-20">
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-100 pb-8">
         <div>
           <h1 className="text-3xl font-black text-slate-900 tracking-tight">Dashboard</h1>
           <p className="text-slate-500 text-sm mt-1">
-            ยินดีต้อนรับ, <span className="text-blue-600 font-bold">{user?.full_name}</span> • แผนก {user?.department}
+            ยินดีต้อนรับ, <span className="text-blue-600 font-bold">{user?.full_name || '—'}</span> • แผนก {user?.department || '—'}
           </p>
         </div>
         <div className="bg-slate-50 px-4 py-2 rounded-2xl border border-slate-100">
@@ -472,15 +530,28 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col gap-4">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-2 text-slate-400">
-            <Icons.Filter />
-            <span className="text-xs font-semibold uppercase tracking-wider">ตัวกรอง Dashboard</span>
-          </div>
-          <div className="text-xs text-slate-500 font-medium">
-            ลูกค้าที่เข้าเงื่อนไข <span className="font-bold text-blue-600">{filteredCustomers.length}</span> รายการ • งานที่เกี่ยวข้อง <span className="font-bold text-blue-600">{filteredTasks.length}</span> รายการ
-          </div>
+      <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {[
+          { label: 'Add Customer', sub: 'เพิ่มลูกค้าใหม่', color: 'bg-blue-600', icon: Icons.Plus, href: '/dashboard/customers' },
+          { label: 'Create Task', sub: 'สร้างงานใหม่', color: 'bg-indigo-600', icon: Icons.Refresh, href: '/dashboard/tasks' },
+          { label: 'Database', sub: 'ฐานข้อมูลลูกค้า', color: 'bg-slate-800', icon: Icons.Database, href: '/dashboard/customers' },
+          { label: 'Schedule', sub: 'ปฏิทินงาน', color: 'bg-emerald-600', icon: Icons.Clock, href: '/dashboard/tasks' },
+        ].map((action, i) => (
+          <Link key={i} href={action.href} className="group relative bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-slate-200 transition-all overflow-hidden">
+            <div className={`absolute top-0 right-0 w-24 h-24 ${action.color} opacity-[0.03] rounded-full -mr-8 -mt-8 group-hover:scale-150 transition-transform duration-500`}></div>
+            <div className={`w-10 h-10 ${action.color} text-white rounded-xl flex items-center justify-center mb-4 shadow-lg shadow-blue-500/10`}>
+              <action.icon />
+            </div>
+            <h4 className="font-bold text-slate-800 group-hover:text-blue-600 transition-colors">{action.label}</h4>
+            <p className="text-[11px] text-slate-400 font-medium">{action.sub}</p>
+          </Link>
+        ))}
+      </section>
+
+      <section className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col gap-4">
+        <div className="flex items-center gap-2 text-slate-400">
+          <Icons.Filter />
+          <span className="text-xs font-semibold uppercase tracking-wider">ตัวกรอง</span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -520,9 +591,9 @@ export default function DashboardPage() {
             <option value={LEAD_SOURCE_GROUPS.OFFLINE_ALL}>Offline ทั้งหมด</option>
             <option value={LEAD_SOURCE_GROUPS.ONLINE_ALL}>Online ทั้งหมด</option>
             <option disabled value="__sep__">──────────</option>
-            {LEAD_SOURCES.map((s) => (
-              <option key={s} value={s}>
-                {s}
+            {LEAD_SOURCES.map((source) => (
+              <option key={source} value={source}>
+                {source}
               </option>
             ))}
           </select>
@@ -552,16 +623,18 @@ export default function DashboardPage() {
           </div>
 
           <div className="w-full">
-            <div className="mb-1 flex items-center gap-1 text-[11px] text-slate-500 font-semibold">บริการ</div>
+            <div className="mb-1 flex items-center gap-1 text-[11px] text-slate-500 font-semibold">
+              บริการ
+            </div>
             <select
               value={serviceFilter}
               onChange={(e) => setServiceFilter(e.target.value)}
               className="w-full h-11 px-4 bg-slate-50 border-none rounded-xl text-sm font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"
             >
               <option value="all">บริการทั้งหมด</option>
-              {filterServices.map((sv: any) => (
-                <option key={sv.service_id} value={sv.service_id}>
-                  {sv.service_name}
+              {filterServices.map((service: any) => (
+                <option key={service.service_id} value={service.service_id}>
+                  {service.service_name}
                 </option>
               ))}
             </select>
@@ -598,42 +671,22 @@ export default function DashboardPage() {
             >
               <option value="all">ทุกแผนก</option>
               {(user?.role === 'digital_marketing'
-                ? (Array.isArray(user?.allowed_departments) ? user.allowed_departments : []).map((code: string) => ({ code, name: code }))
+                ? (Array.isArray((user as any)?.allowed_departments) ? (user as any).allowed_departments : []).map((code: string) => ({ code, name: code }))
                 : DEPARTMENTS
-              ).map((d: any) => (
-                <option key={d.code} value={d.code}>
-                  {d.name}
+              ).map((dept: any) => (
+                <option key={dept.code} value={dept.code}>
+                  {dept.name}
                 </option>
               ))}
             </select>
           )}
 
           <button
-            onClick={resetFilters}
+            onClick={clearFilters}
             className="w-full px-4 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-semibold hover:bg-slate-50 transition-all"
           >
             ล้างตัวกรอง
           </button>
-        </div>
-      </div>
-
-      <section>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[
-            { label: 'Add Customer', sub: 'เพิ่มลูกค้าใหม่', color: 'bg-blue-600', icon: Icons.Plus, href: '/dashboard/customers' },
-            { label: 'Create Task', sub: 'สร้างงานใหม่', color: 'bg-indigo-600', icon: Icons.Refresh, href: '/dashboard/tasks' },
-            { label: 'Database', sub: 'ฐานข้อมูลลูกค้า', color: 'bg-slate-800', icon: Icons.Database, href: '/dashboard/customers' },
-            { label: 'Schedule', sub: 'ปฏิทินงาน', color: 'bg-emerald-600', icon: Icons.Clock, href: '/dashboard/tasks' },
-          ].map((action, i) => (
-            <Link key={i} href={action.href} className="group relative bg-white p-6 rounded-2xl border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-slate-200 transition-all overflow-hidden">
-              <div className={`absolute top-0 right-0 w-24 h-24 ${action.color} opacity-[0.03] rounded-full -mr-8 -mt-8 group-hover:scale-150 transition-transform duration-500`}></div>
-              <div className={`w-10 h-10 ${action.color} text-white rounded-xl flex items-center justify-center mb-4 shadow-lg shadow-blue-500/10`}>
-                <action.icon />
-              </div>
-              <h4 className="font-bold text-slate-800 group-hover:text-blue-600 transition-colors">{action.label}</h4>
-              <p className="text-[11px] text-slate-400 font-medium">{action.sub}</p>
-            </Link>
-          ))}
         </div>
       </section>
 
@@ -672,12 +725,7 @@ export default function DashboardPage() {
               { label: 'Close', value: stats.closeValue, color: '#f43f5e' },
             ]}
             centerText={`฿${formatCompactCurrency(
-              stats.leadValue +
-                stats.potentialValue +
-                stats.prospectValue +
-                stats.pipelineValue +
-                stats.poValue +
-                stats.closeValue
+              stats.leadValue + stats.potentialValue + stats.prospectValue + stats.pipelineValue + stats.poValue + stats.closeValue
             )}`}
             centerSubText="Total Value"
             valueFormatter={(v) => `฿${formatCompactCurrency(v)}`}
@@ -701,15 +749,16 @@ export default function DashboardPage() {
       </section>
 
       <section className="bg-slate-50 p-8 rounded-[2.5rem] border border-slate-100">
-        <div className="flex items-center gap-4 mb-8">
-          <div className="h-8 w-1.5 bg-slate-800 rounded-full"></div>
-          <h3 className="text-xl font-black text-slate-800 tracking-tight">Task Overview</h3>
+        <div className="flex items-center justify-between gap-4 mb-8 flex-wrap">
+          <div className="flex items-center gap-4">
+            <div className="h-8 w-1.5 bg-slate-800 rounded-full"></div>
+            <h3 className="text-xl font-black text-slate-800 tracking-tight">Task Overview</h3>
+          </div>
+          <Link href="/dashboard/tasks" className="text-sm font-semibold text-blue-600 hover:text-blue-700">ดูงานทั้งหมด</Link>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/50 flex items-center gap-5">
-            <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center border border-rose-100">
-              <Icons.Clock />
-            </div>
+            <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center border border-rose-100"><Icons.Clock /></div>
             <div>
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pending</p>
               <h4 className="text-3xl font-black text-slate-800">{stats.pendingTasks} <span className="text-sm font-normal text-slate-400 ml-1">Items</span></h4>
@@ -717,9 +766,7 @@ export default function DashboardPage() {
           </div>
 
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/50 flex items-center gap-5">
-            <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100">
-              <Icons.Refresh />
-            </div>
+            <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100"><Icons.Refresh /></div>
             <div>
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">In Progress</p>
               <h4 className="text-3xl font-black text-slate-800">{stats.inProgressTasks} <span className="text-sm font-normal text-slate-400 ml-1">Items</span></h4>
@@ -727,15 +774,59 @@ export default function DashboardPage() {
           </div>
 
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/50 flex items-center gap-5">
-            <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100">
-              <Icons.Check />
-            </div>
+            <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100"><Icons.Check /></div>
             <div>
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Completed</p>
               <h4 className="text-3xl font-black text-slate-800">{stats.completedTasks} <span className="text-sm font-normal text-slate-400 ml-1">Items</span></h4>
             </div>
           </div>
         </div>
+      </section>
+
+      <section className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-6 md:p-8">
+        <div className="flex items-center justify-between gap-4 flex-wrap mb-6">
+          <div>
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Follow-Up Today</p>
+            <h3 className="text-xl font-black text-slate-800 tracking-tight mt-1">ลูกค้าที่ต้อง Follow-Up วันนี้</h3>
+            
+          </div>
+          <Link href="/dashboard/tasks" className="px-4 py-2 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700">ไปหน้างานทั้งหมด</Link>
+        </div>
+
+        {todayFollowUps.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-6 py-10 text-center">
+            <p className="text-slate-600 font-semibold">วันนี้ไม่มีลูกค้าที่ต้อง Follow-Up ตามตัวกรองที่เลือก</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto rounded-2xl border border-slate-100">
+            <table className="min-w-full text-sm">
+              <thead className="bg-slate-50 text-slate-500">
+                <tr>
+                  <th className="px-4 py-3 text-left font-bold">ลูกค้า</th>
+                  <th className="px-4 py-3 text-left font-bold">หัวข้องาน</th>
+                  <th className="px-4 py-3 text-left font-bold">ผู้รับผิดชอบ</th>
+                  <th className="px-4 py-3 text-left font-bold">กำหนดส่ง</th>
+                  <th className="px-4 py-3 text-left font-bold">สถานะ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {todayFollowUps.map((task) => (
+                  <tr key={task.task_id} className="border-t border-slate-100 hover:bg-slate-50/70">
+                    <td className="px-4 py-3 font-semibold text-slate-800">{task.company_name || '—'}</td>
+                    <td className="px-4 py-3 text-slate-700">{task.title || '—'}</td>
+                    <td className="px-4 py-3 text-slate-700">{task.assigned_to_name || '—'}</td>
+                    <td className="px-4 py-3 text-slate-700">{formatDateTime(task.task_date)}</td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-bold ${task.status === 'in_progress' ? 'bg-blue-50 text-blue-700 border border-blue-100' : 'bg-amber-50 text-amber-700 border border-amber-100'}`}>
+                        {task.status === 'in_progress' ? 'In Progress' : 'Pending'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
     </div>
   );

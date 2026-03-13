@@ -328,7 +328,7 @@ export default function ServicesPage() {
                     type="text"
                     value={formData.service_name}
                     onChange={(e) => setFormData((prev) => ({ ...prev, service_name: e.target.value }))}
-                    placeholder="เช่น บริการแม่บ้าน, บริการ BPO"
+                    placeholder="ใส่ชื่อบริการ"
                     className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
                   />
                 </div>
@@ -362,7 +362,7 @@ export default function ServicesPage() {
               </div>
 
               <div className="rounded-2xl bg-slate-50 border border-slate-100 p-4 text-sm text-slate-600">
-                ระบบจะบันทึกค่า <span className="font-semibold">requires_quantity = true</span> ให้อัตโนมัติ เพื่อให้บริการนี้สามารถระบุจำนวนได้
+                หลังจากบันทึก <span className="font-semibold">บริการใหม่แล้ว</span> ระบบจะเปิดใช้งานบริการนั้นๆ ให้โดยอัตโนมัติ
               </div>
             </div>
 
