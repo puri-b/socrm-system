@@ -146,6 +146,7 @@ export async function POST(request: NextRequest) {
     const contract_start_date = toNullableString(data?.contract_start_date);
     const contract_end_date = toNullableString(data?.contract_end_date);
     const department = toNullableString(data?.department);
+    const created_at_date = toNullableString(data?.created_at_date);
     const customer_services = data?.customer_services;
 
     if (!company_name) {
@@ -162,8 +163,15 @@ export async function POST(request: NextRequest) {
         company_name, email, phone, location, registration_info, business_type, budget,
         contact_person, service_interested, lead_source, search_keyword, is_quality_lead,
         sales_person_id, lead_status, contract_value, pain_points, contract_duration,
-        contract_start_date, contract_end_date, department, created_by
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
+        contract_start_date, contract_end_date, department, created_at, created_by
+      ) VALUES (
+        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
+        CASE
+          WHEN $21::text IS NOT NULL AND $21::text <> '' THEN ($21::date + CURRENT_TIME)
+          ELSE CURRENT_TIMESTAMP
+        END,
+        $22
+      )
       RETURNING *`,
       [
         company_name,
@@ -186,6 +194,7 @@ export async function POST(request: NextRequest) {
         contract_start_date,
         contract_end_date,
         customerDept,
+        created_at_date,
         user.user_id,
       ]
     );

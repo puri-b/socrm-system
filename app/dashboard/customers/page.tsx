@@ -822,11 +822,12 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
     contact_person: '',
     lead_source: '',
     search_keyword: '',
-    is_quality_lead: false,
+    is_quality_lead: true,
     sales_person_id: user?.user_id,
     lead_status: 'Lead',
     pain_points: '',
     department: user?.department,
+    created_at_date: new Date().toISOString().slice(0, 10),
     selectedServices: [] as any[],
   });
   const [loading, setLoading] = useState(false);
@@ -978,6 +979,16 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
               <input
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </Field>
+
+            <Field label="วันที่ลูกค้าติดต่อเข้ามา *">
+              <input
+                type="date"
+                required
+                value={formData.created_at_date}
+                onChange={(e) => setFormData({ ...formData, created_at_date: e.target.value })}
                 className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
               />
             </Field>
