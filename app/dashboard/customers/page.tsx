@@ -747,6 +747,9 @@ function CustomerDetailModal({ customer, onClose, onEdit, formatCurrency, getSta
               <Info label="Sale ผู้ดูแล" value={customer.sales_person_name || '—'} />
               <Info label="มูลค่าสัญญา" value={customer.contract_value ? `฿ ${formatCurrency(customer.contract_value)}` : '—'} />
               <Info label="Quality Lead" value={customer.is_quality_lead ? 'Lead คุณภาพ' : 'Lead ไม่คุณภาพ'} />
+              {!customer.is_quality_lead && (
+                <Info label="เหตุผลที่ไม่เป็น Lead คุณภาพ" value={customer.quality_lead_reason || '—'} />
+              )}
               <Info label="Keyword ค้นหา" value={customer.search_keyword || '—'} />
             </div>
             {customer.pain_points && (
@@ -824,11 +827,13 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
     lead_source: '',
     search_keyword: '',
     is_quality_lead: true,
+    quality_lead_reason: '',
     sales_person_id: user?.user_id,
     lead_status: 'Lead',
     pain_points: '',
     department: user?.department,
     created_at_date: new Date().toISOString().slice(0, 10),
+    next_followup_date: '',
     selectedServices: [] as any[],
   });
   const [loading, setLoading] = useState(false);
@@ -994,6 +999,15 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
               />
             </Field>
 
+            <Field label="วันที่ติดตามครั้งถัดไป">
+              <input
+                type="date"
+                value={formData.next_followup_date}
+                onChange={(e) => setFormData({ ...formData, next_followup_date: e.target.value })}
+                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </Field>
+
             <Field label="ชื่อผู้ติดต่อ *">
               <input
                 value={formData.contact_person}
@@ -1103,12 +1117,31 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
                 <input
                   type="checkbox"
                   checked={formData.is_quality_lead}
-                  onChange={(e) => setFormData({ ...formData, is_quality_lead: e.target.checked })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      is_quality_lead: e.target.checked,
+                      quality_lead_reason: e.target.checked ? '' : formData.quality_lead_reason,
+                    })
+                  }
                   className="mr-2 h-4 w-4"
                 />
                 เป็น Lead คุณภาพ
               </label>
             </div>
+
+            {!formData.is_quality_lead && (
+              <Field label="เหตุผลที่ไม่เป็น Lead คุณภาพ *" full>
+                <textarea
+                  required={!formData.is_quality_lead}
+                  rows={3}
+                  value={formData.quality_lead_reason}
+                  onChange={(e) => setFormData({ ...formData, quality_lead_reason: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  placeholder="ระบุเหตุผล เช่น งบประมาณไม่ตรง, ไม่ตรงกลุ่มเป้าหมาย, พื้นที่ไม่รองรับบริการ"
+                />
+              </Field>
+            )}
 
             {services.length > 0 && (
   <div className="md:col-span-2">
@@ -1262,9 +1295,11 @@ function EditCustomerModal({ customer, users, leadSources, onClose, onSuccess }:
     business_type: customer.business_type || '',
     budget: customer.budget || '',
     contact_person: customer.contact_person || '',
+    registration_info: customer.registration_info || '',
     lead_source: customer.lead_source || '',
     search_keyword: customer.search_keyword || '',
     is_quality_lead: customer.is_quality_lead || false,
+    quality_lead_reason: customer.quality_lead_reason || '',
     sales_person_id: customer.sales_person_id,
     lead_status: customer.lead_status || 'Lead',
     pain_points: customer.pain_points || '',
@@ -1434,6 +1469,15 @@ function EditCustomerModal({ customer, users, leadSources, onClose, onSuccess }:
               />
             </Field>
 
+            <Field label="ทุนจดทะเบียน">
+              <input
+                value={formData.registration_info}
+                onChange={(e) => setFormData({ ...formData, registration_info: e.target.value })}
+                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="เช่น 5,000,000 บาท"
+              />
+            </Field>
+
             <Field label="ที่ตั้ง" full>
               <input
                 value={formData.location}
@@ -1535,12 +1579,31 @@ function EditCustomerModal({ customer, users, leadSources, onClose, onSuccess }:
                 <input
                   type="checkbox"
                   checked={formData.is_quality_lead}
-                  onChange={(e) => setFormData({ ...formData, is_quality_lead: e.target.checked })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      is_quality_lead: e.target.checked,
+                      quality_lead_reason: e.target.checked ? '' : formData.quality_lead_reason,
+                    })
+                  }
                   className="mr-2 h-4 w-4"
                 />
                 เป็น Lead คุณภาพ
               </label>
             </div>
+
+            {!formData.is_quality_lead && (
+              <Field label="เหตุผลที่ไม่เป็น Lead คุณภาพ *" full>
+                <textarea
+                  required={!formData.is_quality_lead}
+                  rows={3}
+                  value={formData.quality_lead_reason}
+                  onChange={(e) => setFormData({ ...formData, quality_lead_reason: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  placeholder="ระบุเหตุผล เช่น งบประมาณไม่ตรง, ไม่ตรงกลุ่มเป้าหมาย, พื้นที่ไม่รองรับบริการ"
+                />
+              </Field>
+            )}
 
             {services.length > 0 && (
               <div className="md:col-span-2">

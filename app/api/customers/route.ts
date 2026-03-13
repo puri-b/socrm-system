@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query } from '@/lib/db';
+import { query, getClient } from '@/lib/db';
 import { getUserFromRequest, canAccessDepartment, getAccessibleDepartments } from '@/lib/auth';
 
-// --- helpers (กันเคสส่งค่าเป็น "" แล้วชน numeric ใน Postgres) ---
 function toNullableString(v: any) {
   if (v === undefined || v === null) return null;
   const s = String(v).trim();
@@ -23,6 +22,24 @@ function toNullableBoolean(v: any) {
   if (v === 'true') return true;
   if (v === 'false') return false;
   return null;
+}
+
+function mapLeadSourceToContactChannel(leadSource: string | null) {
+  const normalized = (leadSource || '').trim().toLowerCase();
+
+  if (normalized === 'offline - callout' || normalized === 'online - call in') {
+    return 'โทร';
+  }
+
+  if (normalized === 'online - e-mail' || normalized === 'online - email' || normalized === 'online - leadform') {
+    return 'email';
+  }
+
+  if (normalized === 'online - line') {
+    return 'Line';
+  }
+
+  return 'พบหน้า';
 }
 
 export async function GET(request: NextRequest) {
@@ -93,7 +110,6 @@ export async function GET(request: NextRequest) {
       paramCount++;
     }
 
-    // ✅ ตัวกรองวันที่บันทึกข้อมูล (created_at) ส่งแบบ YYYY-MM-DD
     if (dateFrom) {
       queryText += ` AND c.created_at >= $${paramCount}`;
       params.push(`${dateFrom} 00:00:00`);
@@ -116,6 +132,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const client = await getClient();
+
   try {
     const user = getUserFromRequest(request);
     if (!user) {
@@ -124,7 +142,6 @@ export async function POST(request: NextRequest) {
 
     const data = await request.json();
 
-    // ✅ sanitize ทุก field ที่มีโอกาสส่งเป็น "" จากฟอร์ม
     const company_name = toNullableString(data?.company_name);
     const email = toNullableString(data?.email);
     const phone = toNullableString(data?.phone);
@@ -138,6 +155,7 @@ export async function POST(request: NextRequest) {
     const search_keyword = toNullableString(data?.search_keyword);
     const is_quality_lead_raw = toNullableBoolean(data?.is_quality_lead);
     const is_quality_lead = is_quality_lead_raw ?? false;
+    const quality_lead_reason = is_quality_lead ? null : toNullableString(data?.quality_lead_reason);
     const sales_person_id = toNullableNumber(data?.sales_person_id);
     const lead_status = toNullableString(data?.lead_status) || 'Lead';
     const contract_value = toNullableNumber(data?.contract_value);
@@ -147,10 +165,15 @@ export async function POST(request: NextRequest) {
     const contract_end_date = toNullableString(data?.contract_end_date);
     const department = toNullableString(data?.department);
     const created_at_date = toNullableString(data?.created_at_date);
+    const next_followup_date = toNullableString(data?.next_followup_date);
     const customer_services = data?.customer_services ?? data?.services;
 
     if (!company_name) {
       return NextResponse.json({ error: 'ชื่อบริษัทจำเป็นต้องระบุ' }, { status: 400 });
+    }
+
+    if (!is_quality_lead && !quality_lead_reason) {
+      return NextResponse.json({ error: 'กรุณาระบุเหตุผลที่ไม่เป็น Lead คุณภาพ' }, { status: 400 });
     }
 
     const customerDept = department || user.department;
@@ -158,19 +181,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    const result = await query(
+    const assignedSalesPersonId = sales_person_id ? Number(sales_person_id) : user.user_id;
+    const autoContactSubject = 'นำเสนอบริการ';
+    const autoContactNote = 'บันทึกประวัติติดต่ออัตโนมัติจากการสร้างลูกค้าใหม่';
+
+    await client.query('BEGIN');
+
+    const result = await client.query(
       `INSERT INTO x_socrm.customers (
         company_name, email, phone, location, registration_info, business_type, budget,
         contact_person, service_interested, lead_source, search_keyword, is_quality_lead,
-        sales_person_id, lead_status, contract_value, pain_points, contract_duration,
-        contract_start_date, contract_end_date, department, created_at, created_by
+        quality_lead_reason, sales_person_id, lead_status, contract_value, pain_points,
+        contract_duration, contract_start_date, contract_end_date, department, created_at, created_by
       ) VALUES (
-        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
+        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,
         CASE
-          WHEN $21::text IS NOT NULL AND $21::text <> '' THEN ($21::date + CURRENT_TIME)
+          WHEN $22::text IS NOT NULL AND $22::text <> '' THEN ($22::date + CURRENT_TIME)
           ELSE CURRENT_TIMESTAMP
         END,
-        $22
+        $23
       )
       RETURNING *`,
       [
@@ -186,7 +215,8 @@ export async function POST(request: NextRequest) {
         lead_source,
         search_keyword,
         is_quality_lead,
-        (sales_person_id ? Number(sales_person_id) : user.user_id),
+        quality_lead_reason,
+        assignedSalesPersonId,
         lead_status,
         contract_value,
         pain_points,
@@ -201,12 +231,11 @@ export async function POST(request: NextRequest) {
 
     const customer = result.rows[0];
 
-    // upsert customer_services (optional)
     if (Array.isArray(customer_services)) {
-      await query('DELETE FROM x_socrm.customer_services WHERE customer_id = $1', [customer.customer_id]);
+      await client.query('DELETE FROM x_socrm.customer_services WHERE customer_id = $1', [customer.customer_id]);
       for (const cs of customer_services) {
         if (!cs?.service_id) continue;
-        await query(
+        await client.query(
           `INSERT INTO x_socrm.customer_services (customer_id, service_id, quantity)
            VALUES ($1, $2, $3)`,
           [customer.customer_id, Number(cs.service_id), cs.quantity ?? null]
@@ -214,9 +243,69 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ success: true, customer });
+    const createdAt = customer?.created_at ? new Date(customer.created_at) : new Date();
+    const contactDate = createdAt.toISOString().slice(0, 10);
+
+    const contactResult = await client.query(
+      `INSERT INTO x_socrm.contact_history (
+        customer_id, contact_date, contact_subject, contact_channel,
+        customer_contact_person, sales_person_id, quotation_amount,
+        next_followup_date, notes, lead_status_updated, created_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      RETURNING *`,
+      [
+        customer.customer_id,
+        contactDate,
+        autoContactSubject,
+        mapLeadSourceToContactChannel(lead_source),
+        contact_person,
+        assignedSalesPersonId,
+        0,
+        next_followup_date,
+        autoContactNote,
+        lead_status,
+        createdAt,
+      ]
+    );
+
+    let autoTask = null;
+    if (is_quality_lead && next_followup_date) {
+      const taskResult = await client.query(
+        `INSERT INTO x_socrm.tasks (
+          customer_id, project_id, assigned_to, created_by, title,
+          description, task_date, status, department, assigned_by
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        RETURNING *`,
+        [
+          customer.customer_id,
+          null,
+          assignedSalesPersonId,
+          user.user_id,
+          autoContactSubject,
+          autoContactNote,
+          next_followup_date,
+          'pending',
+          customerDept,
+          user.user_id,
+        ]
+      );
+
+      autoTask = taskResult.rows[0] || null;
+    }
+
+    await client.query('COMMIT');
+
+    return NextResponse.json({
+      success: true,
+      customer,
+      auto_contact: contactResult.rows[0],
+      auto_task: autoTask,
+    });
   } catch (error) {
+    await client.query('ROLLBACK');
     console.error('Create customer error:', error);
     return NextResponse.json({ error: 'เกิดข้อผิดพลาด' }, { status: 500 });
+  } finally {
+    client.release();
   }
 }
