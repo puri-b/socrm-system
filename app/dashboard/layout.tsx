@@ -119,7 +119,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
               <div className="leading-tight">
                 <div className="text-lg font-bold text-slate-800 tracking-tight">SO LEAD Management System</div>
-                <div className="text-xs text-slate-400 font-medium">version 1.0 ระหว่างการทดสอบ</div>
+                <div className="text-xs text-slate-400 font-medium">version 2.0 ระหว่างการทดลองใช้ทุกแผนก</div>
               </div>
 
               <span className="ml-2 inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold border bg-indigo-50 text-indigo-700 border-indigo-100">

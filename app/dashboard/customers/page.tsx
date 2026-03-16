@@ -978,6 +978,7 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="ถ้ายังไม่รู้อีเมล์ ปล่อยว่างเอาไว้เลย"
               />
             </Field>
 

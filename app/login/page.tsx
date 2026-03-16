@@ -160,7 +160,7 @@ export default function LoginPage() {
           {/* Footer */}
           <div className="px-7 py-5 bg-slate-50 border-t border-slate-100">
             <div className="text-xs text-slate-400 space-y-1">
-              <p>เวอร์ชัน 1.0 เพื่อการทดสอบการใช้งาน</p>
+              <p>เวอร์ชัน 2.0 ทดสอบการใช้งานทุกแผนก</p>
               <p>หากพบปัญหาการใช้งานกรุณาแจ้งคุณภูริ</p>
             </div>
           </div>
