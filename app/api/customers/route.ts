@@ -31,12 +31,16 @@ function mapLeadSourceToContactChannel(leadSource: string | null) {
     return 'โทร';
   }
 
-  if (normalized === 'online - e-mail' || normalized === 'online - email' || normalized === 'online - leadform') {
+  if (
+    normalized === 'online - e-mail' ||
+    normalized === 'online - email' ||
+    normalized === 'online - leadform'
+  ) {
     return 'email';
   }
 
   if (normalized === 'online - line') {
-    return 'Line';
+    return 'line';
   }
 
   return 'พบหน้า';
@@ -269,6 +273,7 @@ export async function POST(request: NextRequest) {
     );
 
     let autoTask = null;
+
     if (is_quality_lead && next_followup_date) {
       const taskResult = await client.query(
         `INSERT INTO x_socrm.tasks (

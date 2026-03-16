@@ -17,6 +17,19 @@ function toNullableNumber(v: any) {
   return Number.isFinite(n) ? n : null;
 }
 
+function normalizeContactChannel(channel: string | null) {
+  const normalized = (channel || '').trim().toLowerCase();
+
+  if (!normalized) return null;
+  if (normalized === 'โทร') return 'โทร';
+  if (normalized === 'พบหน้า') return 'พบหน้า';
+  if (normalized === 'email' || normalized === 'e-mail' || normalized === 'อีเมล') return 'email';
+  if (normalized === 'line' || normalized === 'ไลน์') return 'line';
+  if (normalized === 'vdo call' || normalized === 'vdo_call' || normalized === 'video call') return 'vdo call';
+
+  return channel;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const user = getUserFromRequest(request);
@@ -61,7 +74,7 @@ export async function POST(request: NextRequest) {
     const customer_id = toNullableNumber(data?.customer_id);
     const contact_date = toNullableString(data?.contact_date);
     const contact_subject = toNullableString(data?.contact_subject);
-    const contact_channel = toNullableString(data?.contact_channel);
+    const contact_channel = normalizeContactChannel(toNullableString(data?.contact_channel));
     const customer_contact_person = toNullableString(data?.customer_contact_person);
     const sales_person_id = toNullableNumber(data?.sales_person_id);
     const quotation_amount = toNullableNumber(data?.quotation_amount);
