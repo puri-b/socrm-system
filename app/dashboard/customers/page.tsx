@@ -655,21 +655,22 @@ const LEAD_SOURCES = useMemo(
       )}
 
       {showEditModal && selectedCustomer && (
-        <EditCustomerModal
-          customer={selectedCustomer}
-          users={users}
-          leadSources={LEAD_SOURCES}
-          onClose={() => {
-            setShowEditModal(false);
-            setSelectedCustomer(null);
-          }}
-          onSuccess={() => {
-            setShowEditModal(false);
-            setSelectedCustomer(null);
-            fetchCustomers();
-          }}
-        />
-      )}
+  <EditCustomerModal
+    customer={selectedCustomer}
+    user={user}
+    users={users}
+    leadSources={LEAD_SOURCES}
+    onClose={() => {
+      setShowEditModal(false);
+      setSelectedCustomer(null);
+    }}
+    onSuccess={() => {
+      setShowEditModal(false);
+      setSelectedCustomer(null);
+      fetchCustomers();
+    }}
+  />
+)}
 
       {showContactModal && selectedCustomer && (
         <ContactHistoryModal
@@ -833,7 +834,6 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
     pain_points: '',
     department: user?.department,
     created_at_date: new Date().toISOString().slice(0, 10),
-    next_followup_date: '',
     selectedServices: [] as any[],
   });
   const [loading, setLoading] = useState(false);
@@ -846,7 +846,13 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
 
   const fetchServices = async () => {
     try {
-      const response = await fetch(`/api/services?department=${user.department}`);
+      // Digital Marketing และ Admin อาจเข้าถึงได้หลายแผนก
+      // จึงไม่ส่ง department เพื่อให้ API คืนบริการของทุกแผนกที่ user มีสิทธิ์เข้าถึง
+      const url = (user?.role === 'admin' || user?.role === 'digital_marketing')
+        ? '/api/services'
+        : `/api/services?department=${encodeURIComponent(user.department || '')}`;
+
+      const response = await fetch(url);
       const data = await response.json();
       setServices(data.services || []);
     } catch (error) {
@@ -978,7 +984,6 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="ถ้ายังไม่ทราบอีเมล ให้ปล่อยว่าง"
               />
             </Field>
 
@@ -996,15 +1001,6 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
                 required
                 value={formData.created_at_date}
                 onChange={(e) => setFormData({ ...formData, created_at_date: e.target.value })}
-                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </Field>
-
-            <Field label="วันที่ติดตามครั้งถัดไป">
-              <input
-                type="date"
-                value={formData.next_followup_date}
-                onChange={(e) => setFormData({ ...formData, next_followup_date: e.target.value })}
                 className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
               />
             </Field>
@@ -1048,7 +1044,6 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
                 value={formData.budget}
                 onChange={(e) => setFormData({ ...formData, budget: e.target.value })}
                 className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="ถ้ายังไม่ทราบงบประมาณ ให้ใส่ 0"
               />
             </Field>
 
@@ -1287,7 +1282,7 @@ function Field({ label, children, full }: any) {
 // -----------------------------
 // Edit Customer Modal (UI updated)
 // -----------------------------
-function EditCustomerModal({ customer, users, leadSources, onClose, onSuccess }: any) {
+function EditCustomerModal({ customer, user, users, leadSources, onClose, onSuccess }: any) {
   const [services, setServices] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     company_name: customer.company_name || '',
@@ -1321,8 +1316,14 @@ function EditCustomerModal({ customer, users, leadSources, onClose, onSuccess }:
 
   const fetchServices = async () => {
     try {
+      // Digital Marketing และ Admin อาจดูแลได้หลายแผนก
+      // จึงให้ดึงบริการของทุกแผนกที่ user มีสิทธิ์เข้าถึง
       const dept = customer?.department || '';
-      const response = await fetch(`/api/services?department=${encodeURIComponent(dept)}`);
+      const url = (user?.role === 'admin' || user?.role === 'digital_marketing')
+        ? '/api/services'
+        : `/api/services?department=${encodeURIComponent(dept)}`;
+
+      const response = await fetch(url);
       const data = await response.json();
       setServices(data.services || []);
     } catch (err) {
