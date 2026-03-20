@@ -816,6 +816,23 @@ function Info({ label, value }: any) {
 // -----------------------------
 function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any) {
   const [services, setServices] = useState<any[]>([]);
+
+  const departmentOptions = useMemo(() => {
+    if (user?.role === 'admin') {
+      return ['LBD', 'LBA', 'CR', 'LM', 'DS', 'SN'];
+    }
+
+    if (user?.role === 'digital_marketing') {
+      const allowed = Array.isArray(user?.allowed_departments) ? user.allowed_departments : [];
+      return allowed.length > 0 ? allowed : (user?.department ? [user.department] : []);
+    }
+
+    return user?.department ? [user.department] : [];
+  }, [user]);
+
+  const defaultDepartment = departmentOptions[0] || user?.department || '';
+  const canChooseDepartment = departmentOptions.length > 1;
+
   const [formData, setFormData] = useState({
     company_name: '',
     email: '',
@@ -832,7 +849,7 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
     sales_person_id: user?.user_id,
     lead_status: 'Lead',
     pain_points: '',
-    department: user?.department,
+    department: defaultDepartment,
     created_at_date: new Date().toISOString().slice(0, 10),
     selectedServices: [] as any[],
   });
@@ -840,23 +857,31 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
   const [error, setError] = useState('');
 
   useEffect(() => {
-    fetchServices();
+    if (!formData.department && defaultDepartment) {
+      setFormData((prev: any) => ({ ...prev, department: defaultDepartment }));
+    }
+  }, [defaultDepartment, formData.department]);
+
+  useEffect(() => {
+    fetchServices(formData.department);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [formData.department, user?.role]);
 
-  const fetchServices = async () => {
+  const fetchServices = async (departmentCode?: string) => {
     try {
-      // Digital Marketing และ Admin อาจเข้าถึงได้หลายแผนก
-      // จึงไม่ส่ง department เพื่อให้ API คืนบริการของทุกแผนกที่ user มีสิทธิ์เข้าถึง
-      const url = (user?.role === 'admin' || user?.role === 'digital_marketing')
-        ? '/api/services'
-        : `/api/services?department=${encodeURIComponent(user.department || '')}`;
+      const targetDepartment = departmentCode || defaultDepartment || user?.department || '';
+      if (!targetDepartment) {
+        setServices([]);
+        return;
+      }
 
+      const url = `/api/services?department=${encodeURIComponent(targetDepartment)}`;
       const response = await fetch(url);
       const data = await response.json();
       setServices(data.services || []);
     } catch (error) {
       console.error('Failed to fetch services:', error);
+      setServices([]);
     }
   };
 
@@ -1069,6 +1094,27 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
                 onChange={(e) => setFormData({ ...formData, search_keyword: e.target.value })}
                 className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
               />
+            </Field>
+
+            <Field label={canChooseDepartment ? "แผนกที่รับลูกค้า *" : "แผนก"}>
+              <select
+                value={formData.department}
+                onChange={(e) =>
+                  setFormData((prev: any) => ({
+                    ...prev,
+                    department: e.target.value,
+                    selectedServices: [],
+                  }))
+                }
+                disabled={!canChooseDepartment}
+                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 disabled:text-slate-500 disabled:opacity-100"
+              >
+                {departmentOptions.map((dept: string) => (
+                  <option key={dept} value={dept}>
+                    {dept}
+                  </option>
+                ))}
+              </select>
             </Field>
 
             <Field label="Sale ผู้ดูแล">
