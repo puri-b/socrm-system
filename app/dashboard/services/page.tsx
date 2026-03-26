@@ -1,3 +1,6 @@
+//เพิ่ม Field คู่แข่ง (ไม่บังคับกรอก)//
+//เพิ่ม Field Solution (LBA)//
+
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
