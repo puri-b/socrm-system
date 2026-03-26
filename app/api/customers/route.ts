@@ -170,6 +170,9 @@ export async function POST(request: NextRequest) {
     const department = toNullableString(data?.department);
     const created_at_date = toNullableString(data?.created_at_date);
     const next_followup_date = toNullableString(data?.next_followup_date);
+    const car_type = toNullableString(data?.car_type);
+    const car_subtype = toNullableString(data?.car_subtype);
+    const gear_type = toNullableString(data?.gear_type);
     const customer_services = data?.customer_services ?? data?.services;
 
     if (!company_name) {
@@ -193,17 +196,18 @@ export async function POST(request: NextRequest) {
 
     const result = await client.query(
       `INSERT INTO x_socrm.customers (
-        company_name, email, phone, location, registration_info, business_type, budget,
-        contact_person, service_interested, lead_source, search_keyword, is_quality_lead,
+        company_name, email, phone, location, registration_info, car_type, car_subtype, gear_type,
+        business_type, budget, contact_person, service_interested, lead_source, search_keyword, is_quality_lead,
         quality_lead_reason, sales_person_id, lead_status, contract_value, pain_points,
         contract_duration, contract_start_date, contract_end_date, department, created_at, created_by
       ) VALUES (
-        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,
+        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,
+        $16,$17,$18,$19,$20,$21,$22,$23,$24,
         CASE
-          WHEN $22::text IS NOT NULL AND $22::text <> '' THEN ($22::date + CURRENT_TIME)
+          WHEN $25::text IS NOT NULL AND $25::text <> '' THEN ($25::date + CURRENT_TIME)
           ELSE CURRENT_TIMESTAMP
         END,
-        $23
+        $26
       )
       RETURNING *`,
       [
@@ -212,6 +216,9 @@ export async function POST(request: NextRequest) {
         phone,
         location,
         registration_info,
+        customerDept === 'CR' ? car_type : null,
+        customerDept === 'CR' ? car_subtype : null,
+        customerDept === 'CR' ? gear_type : null,
         business_type,
         budget,
         contact_person,

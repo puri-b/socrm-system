@@ -37,11 +37,13 @@ export async function PUT(
     const customerId = params.id;
     const data = await request.json();
 
-    const incomingServices = Array.isArray(data.services)
-      ? data.services
-      : Array.isArray(data.selectedServices)
-        ? data.selectedServices
-        : [];
+    const incomingServices = Array.isArray(data.customer_services)
+      ? data.customer_services
+      : Array.isArray(data.services)
+        ? data.services
+        : Array.isArray(data.selectedServices)
+          ? data.selectedServices
+          : [];
 
     const isQualityLead = toNullableBoolean(data?.is_quality_lead) ?? false;
     const qualityLeadReason = isQualityLead ? null : toNullableString(data?.quality_lead_reason);
@@ -50,12 +52,29 @@ export async function PUT(
       return NextResponse.json({ error: 'กรุณาระบุเหตุผลที่ไม่เป็น Lead คุณภาพ' }, { status: 400 });
     }
 
+    const existingCustomer = await query(
+      'SELECT * FROM x_socrm.customers WHERE customer_id = $1',
+      [customerId]
+    );
+
+    if (existingCustomer.rows.length === 0) {
+      return NextResponse.json({ error: 'ไม่พบข้อมูลลูกค้า' }, { status: 404 });
+    }
+
+    const customerDept = existingCustomer.rows[0].department;
+    if (!canAccessDepartment(user, customerDept)) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
+
     const cleanData = {
       company_name: toNullableString(data?.company_name),
       email: toNullableString(data?.email),
       phone: toNullableString(data?.phone),
       location: toNullableString(data?.location),
       registration_info: toNullableString(data?.registration_info),
+      car_type: customerDept === 'CR' ? toNullableString(data?.car_type) : null,
+      car_subtype: customerDept === 'CR' ? toNullableString(data?.car_subtype) : null,
+      gear_type: customerDept === 'CR' ? toNullableString(data?.gear_type) : null,
       business_type: toNullableString(data?.business_type),
       budget: toNullableNumber(data?.budget),
       contact_person: toNullableString(data?.contact_person),
@@ -77,20 +96,6 @@ export async function PUT(
       return NextResponse.json({ error: 'ชื่อบริษัทจำเป็นต้องระบุ' }, { status: 400 });
     }
 
-    const existingCustomer = await query(
-      'SELECT * FROM x_socrm.customers WHERE customer_id = $1',
-      [customerId]
-    );
-
-    if (existingCustomer.rows.length === 0) {
-      return NextResponse.json({ error: 'ไม่พบข้อมูลลูกค้า' }, { status: 404 });
-    }
-
-    const customerDept = existingCustomer.rows[0].department;
-    if (!canAccessDepartment(user, customerDept)) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
-    }
-
     const client = await getClient();
     try {
       await client.query('BEGIN');
@@ -102,23 +107,26 @@ export async function PUT(
           phone = $3,
           location = $4,
           registration_info = $5,
-          business_type = $6,
-          budget = $7,
-          contact_person = $8,
-          service_interested = $9,
-          lead_source = $10,
-          search_keyword = $11,
-          is_quality_lead = $12,
-          quality_lead_reason = $13,
-          sales_person_id = $14,
-          lead_status = $15,
-          contract_value = $16,
-          pain_points = $17,
-          contract_duration = $18,
-          contract_start_date = $19,
-          contract_end_date = $20,
+          car_type = $6,
+          car_subtype = $7,
+          gear_type = $8,
+          business_type = $9,
+          budget = $10,
+          contact_person = $11,
+          service_interested = $12,
+          lead_source = $13,
+          search_keyword = $14,
+          is_quality_lead = $15,
+          quality_lead_reason = $16,
+          sales_person_id = $17,
+          lead_status = $18,
+          contract_value = $19,
+          pain_points = $20,
+          contract_duration = $21,
+          contract_start_date = $22,
+          contract_end_date = $23,
           updated_at = CURRENT_TIMESTAMP
-        WHERE customer_id = $21
+        WHERE customer_id = $24
         RETURNING *`,
         [
           cleanData.company_name,
@@ -126,6 +134,9 @@ export async function PUT(
           cleanData.phone,
           cleanData.location,
           cleanData.registration_info,
+          cleanData.car_type,
+          cleanData.car_subtype,
+          cleanData.gear_type,
           cleanData.business_type,
           cleanData.budget,
           cleanData.contact_person,

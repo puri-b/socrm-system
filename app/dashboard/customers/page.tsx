@@ -739,6 +739,9 @@ function CustomerDetailModal({ customer, onClose, onEdit, formatCurrency, getSta
                 }
               />
               <Info label="แหล่งที่มา Lead" value={customer.lead_source || '—'} />
+              {customer.department === 'CR' && <Info label="ประเภทรถ" value={customer.car_type || '—'} />}
+              {customer.department === 'CR' && <Info label="ประเภทรถย่อย" value={customer.car_subtype || '—'} />}
+              {customer.department === 'CR' && <Info label="เกียร์" value={customer.gear_type || '—'} />}
             </div>
           </div>
 
@@ -816,6 +819,29 @@ function Info({ label, value }: any) {
 // -----------------------------
 function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any) {
   const [services, setServices] = useState<any[]>([]);
+
+  const departmentOptions = useMemo(() => {
+    if (user?.role === 'admin') {
+      return [
+        { code: 'LBD', name: 'LBD' },
+        { code: 'LBA', name: 'LBA' },
+        { code: 'CR', name: 'CR' },
+        { code: 'LM', name: 'LM' },
+        { code: 'DS', name: 'DS' },
+        { code: 'SN', name: 'SN' },
+      ];
+    }
+
+    if (user?.role === 'digital_marketing') {
+      const allowed = Array.isArray(user?.allowed_departments) && user.allowed_departments.length > 0
+        ? user.allowed_departments
+        : (user?.department ? [user.department] : []);
+      return allowed.map((code: string) => ({ code, name: code }));
+    }
+
+    return user?.department ? [{ code: user.department, name: user.department }] : [];
+  }, [user]);
+
   const [formData, setFormData] = useState({
     company_name: '',
     email: '',
@@ -835,39 +861,57 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
     department: user?.department,
     created_at_date: new Date().toISOString().slice(0, 10),
     next_followup_date: '',
+    car_type: '',
+    car_subtype: '',
+    gear_type: '',
     selectedServices: [] as any[],
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    fetchServices();
+    if (!formData.department) {
+      const defaultDept = departmentOptions[0]?.code || user?.department || '';
+      if (defaultDept) {
+        setFormData((prev: any) => ({ ...prev, department: defaultDept }));
+      }
+    }
+  }, [departmentOptions, formData.department, user?.department]);
+
+  useEffect(() => {
+    if (!formData.department) return;
+    fetchServices(formData.department);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [formData.department]);
 
-  const fetchServices = async () => {
+  const fetchServices = async (departmentCode: string) => {
     try {
-      // Digital Marketing และ Admin อาจเข้าถึงได้หลายแผนก
-      // จึงไม่ส่ง department เพื่อให้ API คืนบริการของทุกแผนกที่ user มีสิทธิ์เข้าถึง
-      const url = (user?.role === 'admin' || user?.role === 'digital_marketing')
-        ? '/api/services'
-        : `/api/services?department=${encodeURIComponent(user.department || '')}`;
-
+      const url = `/api/services?department=${encodeURIComponent(departmentCode || '')}`;
       const response = await fetch(url);
       const data = await response.json();
       setServices(data.services || []);
     } catch (error) {
       console.error('Failed to fetch services:', error);
+      setServices([]);
     }
   };
 
-    // ✅ helper: หา service object จาก id
+  const handleDepartmentChange = (departmentCode: string) => {
+    setFormData((prev: any) => ({
+      ...prev,
+      department: departmentCode,
+      selectedServices: [],
+      ...(departmentCode === 'CR'
+        ? {}
+        : { car_type: '', car_subtype: '', gear_type: '' }),
+    }));
+  };
+
   const getServiceById = (serviceId: number | null | undefined) => {
     if (!serviceId) return null;
     return services.find((s: any) => Number(s.service_id) === Number(serviceId)) || null;
   };
 
-  // ✅ เพิ่มแถวบริการ
   const addServiceRow = () => {
     setFormData((prev: any) => ({
       ...prev,
@@ -875,7 +919,6 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
     }));
   };
 
-  // ✅ ลบแถวบริการ
   const removeServiceRow = (index: number) => {
     setFormData((prev: any) => ({
       ...prev,
@@ -883,7 +926,6 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
     }));
   };
 
-  // ✅ เปลี่ยนบริการในแถว
   const updateServiceRowId = (index: number, serviceIdRaw: string) => {
     const serviceId = serviceIdRaw ? Number(serviceIdRaw) : null;
 
@@ -891,11 +933,8 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
       const next = [...(prev.selectedServices || [])];
       next[index] = { ...next[index], service_id: serviceId };
 
-      // ถ้า service นั้นไม่ต้องใส่จำนวน ให้ fix เป็น 1
       const svc = getServiceById(serviceId);
       if (svc && !svc.requires_quantity) {
-        next[index].quantity = 1;
-      } else if (svc && svc.requires_quantity && (!next[index].quantity || next[index].quantity < 1)) {
         next[index].quantity = 1;
       } else if (svc && svc.requires_quantity && (!next[index].quantity || next[index].quantity < 1)) {
         next[index].quantity = 1;
@@ -905,7 +944,6 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
     });
   };
 
-  // ✅ เปลี่ยนจำนวนในแถว
   const updateServiceRowQty = (index: number, qtyRaw: string) => {
     const qty = Math.max(1, Number(qtyRaw || 1));
     setFormData((prev: any) => {
@@ -914,7 +952,6 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
       return { ...prev, selectedServices: next };
     });
   };
-
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -926,15 +963,14 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-  ...formData,
-  customer_services: (formData.selectedServices || [])
-    .filter((s: any) => s?.service_id)
-    .map((s: any) => ({
-      service_id: Number(s.service_id),
-      quantity: Math.max(1, Number(s.quantity || 1)),
-      })),
-  }),
-
+          ...formData,
+          customer_services: (formData.selectedServices || [])
+            .filter((s: any) => s?.service_id)
+            .map((s: any) => ({
+              service_id: Number(s.service_id),
+              quantity: Math.max(1, Number(s.quantity || 1)),
+            })),
+        }),
       });
 
       const data = await response.json();
@@ -969,6 +1005,24 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {departmentOptions.length > 1 && (
+              <Field label="แผนกที่รับลูกค้า *" full>
+                <select
+                  required
+                  value={formData.department}
+                  onChange={(e) => handleDepartmentChange(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">เลือกแผนก</option>
+                  {departmentOptions.map((dept: any) => (
+                    <option key={dept.code} value={dept.code}>
+                      {dept.name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            )}
+
             <Field label="ชื่อบริษัท *">
               <input
                 required
@@ -988,7 +1042,7 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
               />
             </Field>
 
-            <Field label="เบอร์โทรศัพท์ * (ไม่ต้องใสขีดกลาง)">
+            <Field label="เบอร์โทรศัพท์ * (ไม่ต้องใส่ขีดกลาง)">
               <input
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
@@ -1056,6 +1110,48 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
                 className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
               />
             </Field>
+
+            {formData.department === 'CR' && (
+              <>
+                <Field label="ประเภทรถ">
+                  <select
+                    value={formData.car_type}
+                    onChange={(e) => setFormData({ ...formData, car_type: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">เลือกประเภทรถ</option>
+                    <option value="รถเก๋ง">รถเก๋ง</option>
+                    <option value="รถกระบะ">รถกระบะ</option>
+                    <option value="รถตู้">รถตู้</option>
+                    <option value="รถดัดแปลง">รถดัดแปลง</option>
+                  </select>
+                </Field>
+
+                <Field label="ประเภทรถย่อย">
+                  <select
+                    value={formData.car_subtype}
+                    onChange={(e) => setFormData({ ...formData, car_subtype: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">เลือกประเภทรถย่อย</option>
+                    <option value="เก๋งเล็ก 4 ประตู">เก๋งเล็ก 4 ประตู</option>
+                    <option value="ตู้โดยสาร">ตู้โดยสาร</option>
+                  </select>
+                </Field>
+
+                <Field label="เกียร์">
+                  <select
+                    value={formData.gear_type}
+                    onChange={(e) => setFormData({ ...formData, gear_type: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">เลือกประเภทเกียร์</option>
+                    <option value="AT">AT</option>
+                    <option value="MT">MT</option>
+                  </select>
+                </Field>
+              </>
+            )}
 
             <Field label="แหล่งที่มา Lead *">
               <select
@@ -1151,111 +1247,106 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
             )}
 
             {services.length > 0 && (
-  <div className="md:col-span-2">
-    <div className="flex items-center justify-between mb-2">
-      <div className="text-xs font-semibold text-slate-500 ml-1">บริการที่สนใจ</div>
+              <div className="md:col-span-2">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-xs font-semibold text-slate-500 ml-1">บริการที่สนใจ</div>
 
-      <button
-        type="button"
-        onClick={addServiceRow}
-        className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 transition"
-      >
-        + เพิ่มบริการ
-      </button>
-    </div>
+                  <button
+                    type="button"
+                    onClick={addServiceRow}
+                    className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 transition"
+                  >
+                    + เพิ่มบริการ
+                  </button>
+                </div>
 
-    {(!formData.selectedServices || formData.selectedServices.length === 0) ? (
-      <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100 text-sm text-slate-600">
-        ยังไม่ได้เลือกบริการ กรุณากด “เพิ่มบริการ”
-      </div>
-    ) : (
-      <div className="space-y-2">
-        {formData.selectedServices.map((row: any, index: number) => {
-          const selectedId = row?.service_id ? Number(row.service_id) : null;
-          const selectedSvc = getServiceById(selectedId);
-
-          // กันเลือกซ้ำ: ถ้า id ถูกใช้ในแถวอื่นแล้ว จะไม่ให้เลือกซ้ำ
-          const usedIds = new Set(
-            (formData.selectedServices || [])
-              .map((r: any) => (r?.service_id ? Number(r.service_id) : null))
-              .filter((v: any) => v !== null)
-          );
-
-          return (
-            <div
-              key={index}
-              className="grid grid-cols-12 gap-2 items-center p-3 rounded-2xl bg-slate-50 border border-slate-100"
-            >
-              {/* Dropdown บริการ */}
-              <div className="col-span-12 md:col-span-7">
-                <select
-                  value={selectedId ?? ''}
-                  onChange={(e) => updateServiceRowId(index, e.target.value)}
-                  className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">— เลือกบริการ —</option>
-                  {services
-                    .filter((s: any) => {
-                      const id = Number(s.service_id);
-                      if (selectedId && id === selectedId) return true;
-                      return !usedIds.has(id);
-                    })
-                    .map((s: any) => (
-                      <option key={s.service_id} value={s.service_id}>
-                        {s.service_name}
-                      </option>
-                    ))}
-                </select>
-              </div>
-
-              {/* จำนวน */}
-              <div className="col-span-8 md:col-span-4">
-                {selectedSvc?.requires_quantity ? (
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      min="1"
-                      value={row?.quantity ?? 1}
-                      onChange={(e) => updateServiceRowQty(index, e.target.value)}
-                      className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="จำนวน"
-                    />
-                    <span className="text-sm text-slate-500 font-semibold whitespace-nowrap">
-                      {
-                        selectedSvc.quantity_unit === 'people' ? 'คน' : 
-                        selectedSvc.service_name === 'บริการคลังเอกสารดิจิทัล' ? 'ผู้ใช้' :
-                        selectedSvc.service_name === 'บริการสแกนเอกสาร' ? 'หน้า' :
-                        selectedSvc.service_name === 'บริการ OCR' ? 'หน้า' :
-                        selectedSvc.service_name === 'คลังเก็บเอกสาร' ? 'กล่อง' : 'คัน'
-                    }
-                    </span>
+                {(!formData.selectedServices || formData.selectedServices.length === 0) ? (
+                  <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100 text-sm text-slate-600">
+                    ยังไม่ได้เลือกบริการ กรุณากด “เพิ่มบริการ”
                   </div>
                 ) : (
-                  <div className="px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-sm text-slate-500">
-                    ไม่ต้องระบุจำนวน
+                  <div className="space-y-2">
+                    {formData.selectedServices.map((row: any, index: number) => {
+                      const selectedId = row?.service_id ? Number(row.service_id) : null;
+                      const selectedSvc = getServiceById(selectedId);
+
+                      const usedIds = new Set(
+                        (formData.selectedServices || [])
+                          .map((r: any) => (r?.service_id ? Number(r.service_id) : null))
+                          .filter((v: any) => v !== null)
+                      );
+
+                      return (
+                        <div
+                          key={index}
+                          className="grid grid-cols-12 gap-2 items-center p-3 rounded-2xl bg-slate-50 border border-slate-100"
+                        >
+                          <div className="col-span-12 md:col-span-7">
+                            <select
+                              value={selectedId ?? ''}
+                              onChange={(e) => updateServiceRowId(index, e.target.value)}
+                              className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                              <option value="">— เลือกบริการ —</option>
+                              {services
+                                .filter((s: any) => {
+                                  const id = Number(s.service_id);
+                                  if (selectedId && id === selectedId) return true;
+                                  return !usedIds.has(id);
+                                })
+                                .map((s: any) => (
+                                  <option key={s.service_id} value={s.service_id}>
+                                    {s.service_name}
+                                  </option>
+                                ))}
+                            </select>
+                          </div>
+
+                          <div className="col-span-8 md:col-span-4">
+                            {selectedSvc?.requires_quantity ? (
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={row?.quantity ?? 1}
+                                  onChange={(e) => updateServiceRowQty(index, e.target.value)}
+                                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
+                                  placeholder="จำนวน"
+                                />
+                                <span className="text-sm text-slate-500 font-semibold whitespace-nowrap">
+                                  {
+                                    selectedSvc.quantity_unit === 'people' ? 'คน' : 
+                                    selectedSvc.service_name === 'บริการคลังเอกสารดิจิทัล' ? 'ผู้ใช้' :
+                                    selectedSvc.service_name === 'บริการสแกนเอกสาร' ? 'หน้า' :
+                                    selectedSvc.service_name === 'บริการ OCR' ? 'หน้า' :
+                                    selectedSvc.service_name === 'คลังเก็บเอกสาร' ? 'กล่อง' : 'คัน'
+                                  }
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-sm text-slate-500">
+                                ไม่ต้องระบุจำนวน
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="col-span-4 md:col-span-1 flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() => removeServiceRow(index)}
+                              className="px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-red-50 hover:border-red-200 transition"
+                              title="ลบบริการนี้"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
-
-              {/* ลบแถว */}
-              <div className="col-span-4 md:col-span-1 flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => removeServiceRow(index)}
-                  className="px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-red-50 hover:border-red-200 transition"
-                  title="ลบบริการนี้"
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    )}
-  </div>
-)}
-
+            )}
           </div>
 
           <div className="flex gap-3 pt-2">
@@ -1311,6 +1402,9 @@ function EditCustomerModal({ customer, user, users, leadSources, onClose, onSucc
     lead_status: customer.lead_status || 'Lead',
     pain_points: customer.pain_points || '',
     contract_value: customer.contract_value || '',
+    car_type: customer.car_type || '',
+    car_subtype: customer.car_subtype || '',
+    gear_type: customer.gear_type || '',
     selectedServices: (customer.customer_services || []).map((s: any) => ({
       service_id: Number(s.service_id),
       quantity: Math.max(1, Number(s.quantity ?? 1)),
@@ -1326,28 +1420,22 @@ function EditCustomerModal({ customer, user, users, leadSources, onClose, onSucc
 
   const fetchServices = async () => {
     try {
-      // Digital Marketing และ Admin อาจดูแลได้หลายแผนก
-      // จึงให้ดึงบริการของทุกแผนกที่ user มีสิทธิ์เข้าถึง
-      const dept = customer?.department || '';
-      const url = (user?.role === 'admin' || user?.role === 'digital_marketing')
-        ? '/api/services'
-        : `/api/services?department=${encodeURIComponent(dept)}`;
-
+      const dept = customer?.department || user?.department || '';
+      const url = `/api/services?department=${encodeURIComponent(dept)}`;
       const response = await fetch(url);
       const data = await response.json();
       setServices(data.services || []);
     } catch (err) {
       console.error('Failed to fetch services:', err);
+      setServices([]);
     }
   };
 
-  // ✅ helper: หา service object จาก id
   const getServiceById = (serviceId: number | null | undefined) => {
     if (!serviceId) return null;
     return services.find((s: any) => Number(s.service_id) === Number(serviceId)) || null;
   };
 
-  // ✅ เพิ่มแถวบริการ
   const addServiceRow = () => {
     setFormData((prev: any) => ({
       ...prev,
@@ -1355,7 +1443,6 @@ function EditCustomerModal({ customer, user, users, leadSources, onClose, onSucc
     }));
   };
 
-  // ✅ ลบแถวบริการ
   const removeServiceRow = (index: number) => {
     setFormData((prev: any) => ({
       ...prev,
@@ -1363,7 +1450,6 @@ function EditCustomerModal({ customer, user, users, leadSources, onClose, onSucc
     }));
   };
 
-  // ✅ เปลี่ยนบริการในแถว
   const updateServiceRowId = (index: number, serviceIdRaw: string) => {
     const serviceId = serviceIdRaw ? Number(serviceIdRaw) : null;
 
@@ -1371,13 +1457,8 @@ function EditCustomerModal({ customer, user, users, leadSources, onClose, onSucc
       const next = [...(prev.selectedServices || [])];
       next[index] = { ...next[index], service_id: serviceId };
 
-      // ถ้า service นั้นไม่ต้องใส่จำนวน ให้ fix เป็น 1
       const svc = getServiceById(serviceId);
       if (svc && !svc.requires_quantity) {
-        next[index].quantity = 1;
-      } else if (svc && svc.requires_quantity && (!next[index].quantity || next[index].quantity < 1)) {
-        next[index].quantity = 1;
-      } else if (svc && svc.requires_quantity && (!next[index].quantity || next[index].quantity < 1)) {
         next[index].quantity = 1;
       } else if (svc && svc.requires_quantity && (!next[index].quantity || next[index].quantity < 1)) {
         next[index].quantity = 1;
@@ -1387,7 +1468,6 @@ function EditCustomerModal({ customer, user, users, leadSources, onClose, onSucc
     });
   };
 
-  // ✅ เปลี่ยนจำนวนในแถว
   const updateServiceRowQty = (index: number, qtyRaw: string) => {
     const qty = Math.max(1, Number(qtyRaw || 1));
     setFormData((prev: any) => {
@@ -1449,117 +1529,86 @@ function EditCustomerModal({ customer, user, users, leadSources, onClose, onSucc
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Field label="ชื่อบริษัท *">
-              <input
-                required
-                value={formData.company_name}
-                onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
-                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              <input required value={formData.company_name} onChange={(e) => setFormData({ ...formData, company_name: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500" />
             </Field>
 
             <Field label="อีเมล">
-              <input
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              <input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500" />
             </Field>
 
             <Field label="เบอร์โทรศัพท์">
-              <input
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              <input value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500" />
             </Field>
 
             <Field label="ชื่อผู้ติดต่อ">
-              <input
-                value={formData.contact_person}
-                onChange={(e) => setFormData({ ...formData, contact_person: e.target.value })}
-                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              <input value={formData.contact_person} onChange={(e) => setFormData({ ...formData, contact_person: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500" />
             </Field>
 
             <Field label="ทุนจดทะเบียน">
-              <input
-                value={formData.registration_info}
-                onChange={(e) => setFormData({ ...formData, registration_info: e.target.value })}
-                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="เช่น 5,000,000 บาท"
-              />
+              <input value={formData.registration_info} onChange={(e) => setFormData({ ...formData, registration_info: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500" placeholder="เช่น 5,000,000 บาท" />
             </Field>
 
             <Field label="ที่ตั้ง" full>
-              <input
-                value={formData.location}
-                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              <input value={formData.location} onChange={(e) => setFormData({ ...formData, location: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500" />
             </Field>
 
             <Field label="ประเภทธุรกิจ">
-              <input
-                value={formData.business_type}
-                onChange={(e) => setFormData({ ...formData, business_type: e.target.value })}
-                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              <input value={formData.business_type} onChange={(e) => setFormData({ ...formData, business_type: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500" />
             </Field>
 
             <Field label="งบประมาณ">
-              <input
-                type="number"
-                value={formData.budget}
-                onChange={(e) => setFormData({ ...formData, budget: e.target.value })}
-                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              <input type="number" value={formData.budget} onChange={(e) => setFormData({ ...formData, budget: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500" />
             </Field>
 
+            {customer.department === 'CR' && (
+              <>
+                <Field label="ประเภทรถ">
+                  <select value={formData.car_type} onChange={(e) => setFormData({ ...formData, car_type: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">เลือกประเภทรถ</option>
+                    <option value="รถเก๋ง">รถเก๋ง</option>
+                    <option value="รถกระบะ">รถกระบะ</option>
+                    <option value="รถตู้">รถตู้</option>
+                    <option value="รถดัดแปลง">รถดัดแปลง</option>
+                  </select>
+                </Field>
+
+                <Field label="ประเภทรถย่อย">
+                  <select value={formData.car_subtype} onChange={(e) => setFormData({ ...formData, car_subtype: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">เลือกประเภทรถย่อย</option>
+                    <option value="เก๋งเล็ก 4 ประตู">เก๋งเล็ก 4 ประตู</option>
+                    <option value="ตู้โดยสาร">ตู้โดยสาร</option>
+                  </select>
+                </Field>
+
+                <Field label="เกียร์">
+                  <select value={formData.gear_type} onChange={(e) => setFormData({ ...formData, gear_type: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">เลือกประเภทเกียร์</option>
+                    <option value="AT">AT</option>
+                    <option value="MT">MT</option>
+                  </select>
+                </Field>
+              </>
+            )}
+
             <Field label="แหล่งที่มา Lead *">
-              <select
-                required
-                value={formData.lead_source}
-                onChange={(e) => setFormData({ ...formData, lead_source: e.target.value })}
-                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
-              >
+              <select required value={formData.lead_source} onChange={(e) => setFormData({ ...formData, lead_source: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="">เลือกแหล่งที่มา</option>
-                {leadSources.map((s: string) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
+                {leadSources.map((s: string) => (<option key={s} value={s}>{s}</option>))}
               </select>
             </Field>
 
             <Field label="Keyword ที่ใช้ค้นหา">
-              <input
-                value={formData.search_keyword}
-                onChange={(e) => setFormData({ ...formData, search_keyword: e.target.value })}
-                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              <input value={formData.search_keyword} onChange={(e) => setFormData({ ...formData, search_keyword: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500" />
             </Field>
 
             <Field label="Sale ผู้ดูแล">
-              <select
-                value={formData.sales_person_id}
-                onChange={(e) => setFormData({ ...formData, sales_person_id: parseInt(e.target.value) })}
-                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {users.map((u: any) => (
-                  <option key={u.user_id} value={u.user_id}>
-                    {u.full_name}
-                  </option>
-                ))}
+              <select value={formData.sales_person_id} onChange={(e) => setFormData({ ...formData, sales_person_id: parseInt(e.target.value) })} className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500">
+                {users.map((u: any) => (<option key={u.user_id} value={u.user_id}>{u.full_name}</option>))}
               </select>
             </Field>
 
             <Field label="สถานะ Lead">
-              <select
-                value={formData.lead_status}
-                onChange={(e) => setFormData({ ...formData, lead_status: e.target.value })}
-                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
-              >
+              <select value={formData.lead_status} onChange={(e) => setFormData({ ...formData, lead_status: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="Lead">Lead</option>
                 <option value="Potential">Potential</option>
                 <option value="Prospect">Prospect</option>
@@ -1570,51 +1619,23 @@ function EditCustomerModal({ customer, user, users, leadSources, onClose, onSucc
             </Field>
 
             <Field label="มูลค่าสัญญา">
-              <input
-                type="number"
-                value={formData.contract_value}
-                onChange={(e) => setFormData({ ...formData, contract_value: e.target.value })}
-                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
-              />
+              <input type="number" value={formData.contract_value} onChange={(e) => setFormData({ ...formData, contract_value: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500" />
             </Field>
 
             <Field label="Pain Points และปัญหาที่ต้องการแก้ไข" full>
-              <textarea
-                rows={3}
-                value={formData.pain_points}
-                onChange={(e) => setFormData({ ...formData, pain_points: e.target.value })}
-                className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-              />
+              <textarea rows={3} value={formData.pain_points} onChange={(e) => setFormData({ ...formData, pain_points: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
             </Field>
 
             <div className="md:col-span-2">
               <label className="flex items-center text-sm font-semibold text-slate-700">
-                <input
-                  type="checkbox"
-                  checked={formData.is_quality_lead}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      is_quality_lead: e.target.checked,
-                      quality_lead_reason: e.target.checked ? '' : formData.quality_lead_reason,
-                    })
-                  }
-                  className="mr-2 h-4 w-4"
-                />
+                <input type="checkbox" checked={formData.is_quality_lead} onChange={(e) => setFormData({ ...formData, is_quality_lead: e.target.checked, quality_lead_reason: e.target.checked ? '' : formData.quality_lead_reason })} className="mr-2 h-4 w-4" />
                 เป็น Lead คุณภาพ
               </label>
             </div>
 
             {!formData.is_quality_lead && (
               <Field label="เหตุผลที่ไม่เป็น Lead คุณภาพ *" full>
-                <textarea
-                  required={!formData.is_quality_lead}
-                  rows={3}
-                  value={formData.quality_lead_reason}
-                  onChange={(e) => setFormData({ ...formData, quality_lead_reason: e.target.value })}
-                  className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                  placeholder="ระบุเหตุผล เช่น งบประมาณไม่ตรง, ไม่ตรงกลุ่มเป้าหมาย, พื้นที่ไม่รองรับบริการ"
-                />
+                <textarea required={!formData.is_quality_lead} rows={3} value={formData.quality_lead_reason} onChange={(e) => setFormData({ ...formData, quality_lead_reason: e.target.value })} className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 resize-none" placeholder="ระบุเหตุผล เช่น งบประมาณไม่ตรง, ไม่ตรงกลุ่มเป้าหมาย, พื้นที่ไม่รองรับบริการ" />
               </Field>
             )}
 
@@ -1622,99 +1643,37 @@ function EditCustomerModal({ customer, user, users, leadSources, onClose, onSucc
               <div className="md:col-span-2">
                 <div className="flex items-center justify-between mb-2">
                   <div className="text-xs font-semibold text-slate-500 ml-1">บริการที่สนใจ</div>
-
-                  <button
-                    type="button"
-                    onClick={addServiceRow}
-                    className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 transition"
-                  >
-                    + เพิ่มบริการ
-                  </button>
+                  <button type="button" onClick={addServiceRow} className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 transition">+ เพิ่มบริการ</button>
                 </div>
 
                 {(!formData.selectedServices || formData.selectedServices.length === 0) ? (
-                  <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100 text-sm text-slate-600">
-                    ยังไม่ได้เลือกบริการ กรุณากด “เพิ่มบริการ”
-                  </div>
+                  <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100 text-sm text-slate-600">ยังไม่ได้เลือกบริการ กรุณากด “เพิ่มบริการ”</div>
                 ) : (
                   <div className="space-y-2">
                     {formData.selectedServices.map((row: any, index: number) => {
                       const selectedId = row?.service_id ? Number(row.service_id) : null;
                       const selectedSvc = getServiceById(selectedId);
-
-                      // กันเลือกซ้ำ: ถ้า id ถูกใช้ในแถวอื่นแล้ว จะไม่ให้เลือกซ้ำ
-                      const usedIds = new Set(
-                        (formData.selectedServices || [])
-                          .map((r: any) => (r?.service_id ? Number(r.service_id) : null))
-                          .filter((v: any) => v !== null)
-                      );
-
+                      const usedIds = new Set((formData.selectedServices || []).map((r: any) => (r?.service_id ? Number(r.service_id) : null)).filter((v: any) => v !== null));
                       return (
-                        <div
-                          key={index}
-                          className="grid grid-cols-12 gap-2 items-center p-3 rounded-2xl bg-slate-50 border border-slate-100"
-                        >
-                          {/* Dropdown บริการ */}
+                        <div key={index} className="grid grid-cols-12 gap-2 items-center p-3 rounded-2xl bg-slate-50 border border-slate-100">
                           <div className="col-span-12 md:col-span-7">
-                            <select
-                              value={selectedId ?? ''}
-                              onChange={(e) => updateServiceRowId(index, e.target.value)}
-                              className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
-                            >
+                            <select value={selectedId ?? ''} onChange={(e) => updateServiceRowId(index, e.target.value)} className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500">
                               <option value="">— เลือกบริการ —</option>
-                              {services
-                                .filter((s: any) => {
-                                  const id = Number(s.service_id);
-                                  if (selectedId && id === selectedId) return true;
-                                  return !usedIds.has(id);
-                                })
-                                .map((s: any) => (
-                                  <option key={s.service_id} value={s.service_id}>
-                                    {s.service_name}
-                                  </option>
-                                ))}
+                              {services.filter((s: any) => { const id = Number(s.service_id); if (selectedId && id === selectedId) return true; return !usedIds.has(id); }).map((s: any) => (<option key={s.service_id} value={s.service_id}>{s.service_name}</option>))}
                             </select>
                           </div>
-
-                          {/* จำนวน */}
                           <div className="col-span-8 md:col-span-4">
                             {selectedSvc?.requires_quantity ? (
                               <div className="flex items-center gap-2">
-                                <input
-                                  type="number"
-                                  min="1"
-                                  value={row?.quantity ?? 1}
-                                  onChange={(e) => updateServiceRowQty(index, e.target.value)}
-                                  className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
-                                  placeholder="จำนวน"
-                                />
-                                <span className="text-sm text-slate-500 font-semibold whitespace-nowrap">
-                                  {
-                                    selectedSvc.quantity_unit === 'people' ? 'คน' : 
-                                    selectedSvc.service_name === 'บริการคลังเอกสารดิจิทัล' ? 'ผู้ใช้' :
-                                    selectedSvc.service_name === 'บริการสแกนเอกสาร' ? 'หน้า' :
-                                    selectedSvc.service_name === 'บริการ OCR' ? 'หน้า' :
-                                    selectedSvc.service_name === 'คลังเก็บเอกสาร' ? 'กล่อง' : 'คัน'
-                                  }
-                                </span>
+                                <input type="number" min="1" value={row?.quantity ?? 1} onChange={(e) => updateServiceRowQty(index, e.target.value)} className="w-full px-3 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-blue-500" placeholder="จำนวน" />
+                                <span className="text-sm text-slate-500 font-semibold whitespace-nowrap">{selectedSvc.quantity_unit === 'people' ? 'คน' : selectedSvc.service_name === 'บริการคลังเอกสารดิจิทัล' ? 'ผู้ใช้' : selectedSvc.service_name === 'บริการสแกนเอกสาร' ? 'หน้า' : selectedSvc.service_name === 'บริการ OCR' ? 'หน้า' : selectedSvc.service_name === 'คลังเก็บเอกสาร' ? 'กล่อง' : 'คัน'}</span>
                               </div>
                             ) : (
-                              <div className="px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-sm text-slate-500">
-                                ไม่ต้องระบุจำนวน
-                              </div>
+                              <div className="px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-sm text-slate-500">ไม่ต้องระบุจำนวน</div>
                             )}
                           </div>
-
-                          {/* ลบแถว */}
                           <div className="col-span-4 md:col-span-1 flex justify-end">
-                            <button
-                              type="button"
-                              onClick={() => removeServiceRow(index)}
-                              className="px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-red-50 hover:border-red-200 transition"
-                              title="ลบบริการนี้"
-                            >
-                              ✕
-                            </button>
+                            <button type="button" onClick={() => removeServiceRow(index)} className="px-3 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-red-50 hover:border-red-200 transition" title="ลบบริการนี้">✕</button>
                           </div>
                         </div>
                       );
@@ -1726,20 +1685,8 @@ function EditCustomerModal({ customer, user, users, leadSources, onClose, onSucc
           </div>
 
           <div className="flex gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold text-slate-400 hover:bg-slate-50 transition-all"
-            >
-              ยกเลิก
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex-[2] py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 shadow-md shadow-blue-100 transition-all disabled:bg-slate-300"
-            >
-              {loading ? 'กำลังบันทึก...' : 'บันทึกการแก้ไข'}
-            </button>
+            <button type="button" onClick={onClose} className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold text-slate-400 hover:bg-slate-50 transition-all">ยกเลิก</button>
+            <button type="submit" disabled={loading} className="flex-[2] py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 shadow-md shadow-blue-100 transition-all disabled:bg-slate-300">{loading ? 'กำลังบันทึก...' : 'บันทึกการแก้ไข'}</button>
           </div>
         </form>
       </div>
