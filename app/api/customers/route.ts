@@ -170,10 +170,8 @@ export async function POST(request: NextRequest) {
     const department = toNullableString(data?.department);
     const created_at_date = toNullableString(data?.created_at_date);
     const next_followup_date = toNullableString(data?.next_followup_date);
-    const car_type = toNullableString(data?.car_type);
-    const car_subtype = toNullableString(data?.car_subtype);
-    const gear_type = toNullableString(data?.gear_type);
     const customer_services = data?.customer_services ?? data?.services;
+    const force_create = data?.force_create === true || data?.force_create === 'true';
 
     if (!company_name) {
       return NextResponse.json({ error: 'ชื่อบริษัทจำเป็นต้องระบุ' }, { status: 400 });
@@ -181,6 +179,41 @@ export async function POST(request: NextRequest) {
 
     if (!is_quality_lead && !quality_lead_reason) {
       return NextResponse.json({ error: 'กรุณาระบุเหตุผลที่ไม่เป็น Lead คุณภาพ' }, { status: 400 });
+    }
+
+    if (!force_create) {
+      const duplicateResult = await client.query(
+        `SELECT
+           c.customer_id,
+           c.company_name,
+           c.department,
+           u.full_name AS sales_person_name,
+           COALESCE(string_agg(DISTINCT s.service_name, ', '), '') AS service_names
+         FROM x_socrm.customers c
+         LEFT JOIN x_socrm.users u ON c.sales_person_id = u.user_id
+         LEFT JOIN x_socrm.customer_services cs ON cs.customer_id = c.customer_id
+         LEFT JOIN x_socrm.services s ON s.service_id = cs.service_id
+         WHERE LOWER(BTRIM(c.company_name)) = LOWER(BTRIM($1))
+         GROUP BY c.customer_id, c.company_name, c.department, u.full_name, c.created_at
+         ORDER BY c.created_at DESC
+         LIMIT 1`,
+        [company_name]
+      );
+
+      if (duplicateResult.rows.length > 0) {
+        const dup = duplicateResult.rows[0];
+        return NextResponse.json(
+          {
+            error: `มีลูกค้าชื่อนี้อยู่แล้วในระบบ
+แผนก: ${dup.department || '-'}
+Sale ผู้ดูแล: ${dup.sales_person_name || '-'}
+บริการที่ใช้: ${dup.service_names || '-'}`,
+            duplicate: true,
+            existing_customer: dup,
+          },
+          { status: 409 }
+        );
+      }
     }
 
     const customerDept = department || user.department;
@@ -196,18 +229,17 @@ export async function POST(request: NextRequest) {
 
     const result = await client.query(
       `INSERT INTO x_socrm.customers (
-        company_name, email, phone, location, registration_info, car_type, car_subtype, gear_type,
-        business_type, budget, contact_person, service_interested, lead_source, search_keyword, is_quality_lead,
+        company_name, email, phone, location, registration_info, business_type, budget,
+        contact_person, service_interested, lead_source, search_keyword, is_quality_lead,
         quality_lead_reason, sales_person_id, lead_status, contract_value, pain_points,
         contract_duration, contract_start_date, contract_end_date, department, created_at, created_by
       ) VALUES (
-        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,
-        $16,$17,$18,$19,$20,$21,$22,$23,$24,
+        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,
         CASE
-          WHEN $25::text IS NOT NULL AND $25::text <> '' THEN ($25::date + CURRENT_TIME)
+          WHEN $22::text IS NOT NULL AND $22::text <> '' THEN ($22::date + CURRENT_TIME)
           ELSE CURRENT_TIMESTAMP
         END,
-        $26
+        $23
       )
       RETURNING *`,
       [
@@ -216,9 +248,6 @@ export async function POST(request: NextRequest) {
         phone,
         location,
         registration_info,
-        customerDept === 'CR' ? car_type : null,
-        customerDept === 'CR' ? car_subtype : null,
-        customerDept === 'CR' ? gear_type : null,
         business_type,
         budget,
         contact_person,
@@ -305,7 +334,7 @@ export async function POST(request: NextRequest) {
       autoTask = taskResult.rows[0] || null;
     }
 
-    await client.query('COMMIT');
+       await client.query('COMMIT');
 
     return NextResponse.json({
       success: true,
