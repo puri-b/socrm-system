@@ -1,24 +1,54 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 
 const Icons = {
   Mail: () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <path d="M4 4h16v16H4z" />
       <path d="m22 6-10 7L2 6" />
     </svg>
   ),
   Lock: () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <rect x="3" y="11" width="18" height="11" rx="2" />
       <path d="M7 11V7a5 5 0 0 1 10 0v4" />
     </svg>
   ),
   ArrowRight: () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <path d="M5 12h14" />
       <path d="m13 5 7 7-7 7" />
     </svg>
@@ -33,7 +63,7 @@ const Icons = {
   ),
 };
 
-export default function LoginPage() {
+function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -48,9 +78,33 @@ export default function LoginPage() {
 
   useEffect(() => {
     const err = searchParams.get('error');
-    if (err === 'microsoft_login_failed') setError('เข้าสู่ระบบผ่าน Microsoft ไม่สำเร็จ');
-    if (err === 'microsoft_account_not_allowed') setError('บัญชี Microsoft นี้ยังไม่ได้รับสิทธิ์ใช้งานระบบ');
-    if (err === 'microsoft_email_missing') setError('ไม่พบอีเมลจากบัญชี Microsoft กรุณาติดต่อผู้ดูแลระบบ');
+
+    if (err === 'microsoft_login_failed') {
+      setError('เข้าสู่ระบบผ่าน Microsoft ไม่สำเร็จ');
+      return;
+    }
+
+    if (err === 'microsoft_account_not_allowed') {
+      setError('บัญชี Microsoft นี้ยังไม่ได้รับสิทธิ์ใช้งานระบบ');
+      return;
+    }
+
+    if (err === 'microsoft_email_missing') {
+      setError('ไม่พบอีเมลจากบัญชี Microsoft กรุณาติดต่อผู้ดูแลระบบ');
+      return;
+    }
+
+    if (err === 'server_error') {
+      setError('เกิดข้อผิดพลาดจากระบบ');
+      return;
+    }
+
+    if (err === 'failed') {
+      setError('เข้าสู่ระบบไม่สำเร็จ');
+      return;
+    }
+
+    setError('');
   }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -98,18 +152,31 @@ export default function LoginPage() {
       <div className="relative w-full max-w-md">
         <div className="mb-5 flex items-center gap-3">
           <div className="w-12 h-12 rounded-2xl bg-white border border-slate-100 overflow-hidden shadow-md shadow-slate-100 flex items-center justify-center">
-            <Image src="/so-logo.png" alt="SO Logo" width={48} height={48} className="w-full h-full object-cover" priority />
+            <Image
+              src="/so-logo.png"
+              alt="SO Logo"
+              width={48}
+              height={48}
+              className="w-full h-full object-cover"
+              priority
+            />
           </div>
           <div className="leading-tight">
-            <div className="text-xl font-bold text-slate-800 tracking-tight">SO LEAD Management System</div>
-            <div className="text-xs text-slate-400 font-medium">Sign in to continue</div>
+            <div className="text-xl font-bold text-slate-800 tracking-tight">
+              SO LEAD Management System
+            </div>
+            <div className="text-xs text-slate-400 font-medium">
+              Sign in to continue
+            </div>
           </div>
         </div>
 
         <div className="bg-white rounded-[1.5rem] border border-slate-100 shadow-sm overflow-hidden">
           <div className="p-7">
             <h1 className="text-lg font-bold text-slate-800">เข้าสู่ระบบ</h1>
-            <p className="text-sm text-slate-500 mt-1">กรุณากรอกข้อมูลเพื่อเข้าสู่ระบบ</p>
+            <p className="text-sm text-slate-500 mt-1">
+              กรุณากรอกข้อมูลเพื่อเข้าสู่ระบบ
+            </p>
 
             {error && (
               <div className="mt-4 bg-red-50 border border-red-100 text-red-700 px-4 py-3 rounded-xl text-sm font-medium">
@@ -129,18 +196,24 @@ export default function LoginPage() {
 
             <div className="my-5 flex items-center gap-3">
               <div className="h-px flex-1 bg-slate-100" />
-              <span className="text-xs font-medium text-slate-400">หรือเข้าสู่ระบบด้วยอีเมลของระบบ</span>
+              <span className="text-xs font-medium text-slate-400">
+                หรือเข้าสู่ระบบด้วยอีเมลของระบบ
+              </span>
               <div className="h-px flex-1 bg-slate-100" />
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <Field label="อีเมล">
                 <div className="relative">
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><Icons.Mail /></div>
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                    <Icons.Mail />
+                  </div>
                   <input
                     type="email"
                     value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, email: e.target.value })
+                    }
                     placeholder="example@company.com"
                     className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"
                     required
@@ -151,11 +224,15 @@ export default function LoginPage() {
 
               <Field label="รหัสผ่าน">
                 <div className="relative">
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><Icons.Lock /></div>
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                    <Icons.Lock />
+                  </div>
                   <input
                     type="password"
                     value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, password: e.target.value })
+                    }
                     placeholder="••••••••"
                     className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium text-slate-700 focus:ring-2 focus:ring-blue-500 outline-none"
                     required
@@ -180,10 +257,32 @@ export default function LoginPage() {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+          <div className="text-sm text-slate-500">กำลังโหลด...</div>
+        </div>
+      }
+    >
+      <LoginPageContent />
+    </Suspense>
+  );
+}
+
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <div>
-      <label className="block text-xs font-semibold text-slate-500 mb-1.5 ml-1">{label}</label>
+      <label className="block text-xs font-semibold text-slate-500 mb-1.5 ml-1">
+        {label}
+      </label>
       {children}
     </div>
   );
