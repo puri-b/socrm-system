@@ -50,16 +50,18 @@ export async function GET(request: NextRequest) {
 
   const response = NextResponse.redirect(authUrl);
 
-  const cookieOptions = {
-    httpOnly: true as const,
+  const oauthBundle = JSON.stringify({
+    state,
+    codeVerifier,
+  });
+
+  response.cookies.set('ms_oauth_bundle', oauthBundle, {
+    httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax' as const,
+    sameSite: 'lax',
     path: '/',
     maxAge: 60 * 10,
-  };
-
-  response.cookies.set('ms_oauth_state', state, cookieOptions);
-  response.cookies.set('ms_code_verifier', codeVerifier, cookieOptions);
+  });
 
   console.log('Microsoft login init:', {
     appUrl,

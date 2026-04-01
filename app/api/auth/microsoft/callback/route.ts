@@ -19,9 +19,7 @@ function decodeJwtPayload(token?: string): Record<string, any> {
 
 export async function GET(request: NextRequest) {
   const appUrl =
-    process.env.APP_URL ||
-    process.env.NEXT_PUBLIC_APP_URL ||
-    request.nextUrl.origin;
+    (process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin).replace(/\/+$/, '');
 
   const tenantId = process.env.AZURE_AD_TENANT_ID || 'organizations';
   const clientId = process.env.AZURE_AD_CLIENT_ID;
@@ -32,10 +30,21 @@ export async function GET(request: NextRequest) {
   const state = request.nextUrl.searchParams.get('state');
   const error = request.nextUrl.searchParams.get('error');
 
-  const savedState = request.cookies.get('ms_oauth_state')?.value;
-  const codeVerifier = request.cookies.get('ms_code_verifier')?.value;
+  const oauthBundleRaw = request.cookies.get('ms_oauth_bundle')?.value;
 
-  // debug log
+  let savedState = '';
+  let codeVerifier = '';
+
+  try {
+    if (oauthBundleRaw) {
+      const parsed = JSON.parse(oauthBundleRaw);
+      savedState = parsed?.state || '';
+      codeVerifier = parsed?.codeVerifier || '';
+    }
+  } catch (e) {
+    console.error('Failed to parse ms_oauth_bundle:', e);
+  }
+
   console.log('SSO callback debug:', {
     hasCode: !!code,
     hasState: !!state,
@@ -73,9 +82,6 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // =========================
-    // 1) Exchange code -> token
-    // =========================
     const body = new URLSearchParams({
       client_id: clientId,
       client_secret: clientSecret,
@@ -107,9 +113,6 @@ export async function GET(request: NextRequest) {
     const tokens = await tokenResponse.json();
     const idClaims = decodeJwtPayload(tokens.id_token);
 
-    // =========================
-    // 2) Get user info
-    // =========================
     let userInfo: any = {};
     if (tokens.access_token) {
       try {
@@ -151,9 +154,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // =========================
-    // 3) Find existing user by email
-    // =========================
     const existing = await query(
       `SELECT user_id, email, full_name, department, role, is_active, user_provider, allow_sso_login, allowed_departments
        FROM x_socrm.users
@@ -171,7 +171,6 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      // update provider information for merged account
       await query(
         `UPDATE x_socrm.users
          SET provider_user_id = COALESCE($1, provider_user_id),
@@ -201,7 +200,6 @@ export async function GET(request: NextRequest) {
 
       const response = NextResponse.redirect(new URL('/dashboard', appUrl));
 
-      // backend auth
       response.cookies.set('token', token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
@@ -210,7 +208,6 @@ export async function GET(request: NextRequest) {
         path: '/',
       });
 
-      // frontend bootstrap for localStorage-based UI
       response.cookies.set(
         'sso_user_bootstrap',
         JSON.stringify({
@@ -230,16 +227,14 @@ export async function GET(request: NextRequest) {
         }
       );
 
-      // clear oauth temp cookies
-      response.cookies.set('ms_oauth_state', '', { maxAge: 0, path: '/' });
-      response.cookies.set('ms_code_verifier', '', { maxAge: 0, path: '/' });
+      response.cookies.set('ms_oauth_bundle', '', {
+        maxAge: 0,
+        path: '/',
+      });
 
       return response;
     }
 
-    // =========================
-    // 4) No user found -> onboarding
-    // =========================
     const onboardingToken = jwt.sign(
       {
         type: 'sso_onboarding',
@@ -261,8 +256,10 @@ export async function GET(request: NextRequest) {
     onboardingUrl.searchParams.set('last_name', lastName || '');
 
     const response = NextResponse.redirect(onboardingUrl);
-    response.cookies.set('ms_oauth_state', '', { maxAge: 0, path: '/' });
-    response.cookies.set('ms_code_verifier', '', { maxAge: 0, path: '/' });
+    response.cookies.set('ms_oauth_bundle', '', {
+      maxAge: 0,
+      path: '/',
+    });
 
     return response;
   } catch (err) {
