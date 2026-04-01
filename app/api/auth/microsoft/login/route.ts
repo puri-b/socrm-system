@@ -20,17 +20,13 @@ function generateCodeChallenge(verifier: string) {
 
 export async function GET(request: NextRequest) {
   const appUrl =
-    process.env.APP_URL ||
-    process.env.NEXT_PUBLIC_APP_URL ||
-    request.nextUrl.origin;
+    (process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin).replace(/\/+$/, '');
 
   const tenantId = process.env.AZURE_AD_TENANT_ID || 'organizations';
   const clientId = process.env.AZURE_AD_CLIENT_ID;
 
   if (!clientId) {
-    return NextResponse.redirect(
-      new URL('/login?error=microsoft_login_failed', appUrl)
-    );
+    return NextResponse.redirect(new URL('/login?error=microsoft_login_failed', appUrl));
   }
 
   const redirectUri = `${appUrl}/api/auth/microsoft/callback`;
@@ -54,21 +50,24 @@ export async function GET(request: NextRequest) {
 
   const response = NextResponse.redirect(authUrl);
 
-  // สำคัญ: ต้องเป็น LAX ไม่ใช่ STRICT
-  response.cookies.set('ms_oauth_state', state, {
-    httpOnly: true,
+  const cookieOptions = {
+    httpOnly: true as const,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
+    sameSite: 'lax' as const,
     path: '/',
     maxAge: 60 * 10,
-  });
+  };
 
-  response.cookies.set('ms_code_verifier', codeVerifier, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    maxAge: 60 * 10,
+  response.cookies.set('ms_oauth_state', state, cookieOptions);
+  response.cookies.set('ms_code_verifier', codeVerifier, cookieOptions);
+
+  console.log('Microsoft login init:', {
+    appUrl,
+    redirectUri,
+    hasClientId: !!clientId,
+    stateLength: state.length,
+    verifierLength: codeVerifier.length,
+    nodeEnv: process.env.NODE_ENV,
   });
 
   return response;
