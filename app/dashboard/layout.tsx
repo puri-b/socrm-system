@@ -53,24 +53,65 @@ const Icons = {
   ),
 };
 
+function getCookie(name: string) {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+function clearCookie(name: string) {
+  if (typeof document === 'undefined') return;
+  document.cookie = `${name}=; Max-Age=0; path=/; SameSite=Lax`;
+}
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [user, setUser] = useState<any>(null);
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    const userData = localStorage.getItem('user');
-    if (!userData) {
-      router.push('/login');
-    } else {
-      setUser(JSON.parse(userData));
+    try {
+      // 1) ถ้ามาจาก SSO ให้ดึง cookie มา set localStorage ก่อน
+      const bootstrap = getCookie('sso_user_bootstrap');
+
+      if (bootstrap) {
+        localStorage.setItem('user', bootstrap);
+        clearCookie('sso_user_bootstrap');
+      }
+
+      // 2) อ่าน user จาก localStorage ตามระบบเดิม
+      const userData = localStorage.getItem('user');
+
+      if (!userData) {
+        setUser(null);
+        setIsReady(true);
+        router.replace('/login');
+        return;
+      }
+
+      const parsedUser = JSON.parse(userData);
+      setUser(parsedUser);
+      setIsReady(true);
+    } catch (error) {
+      console.error('Dashboard auth bootstrap error:', error);
+      localStorage.removeItem('user');
+      setUser(null);
+      setIsReady(true);
+      router.replace('/login');
     }
   }, [router]);
 
   const handleLogout = async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    localStorage.removeItem('user');
-    router.push('/login');
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      localStorage.removeItem('user');
+      clearCookie('sso_user_bootstrap');
+      router.replace('/login');
+    }
   };
 
   const navigation = useMemo(() => {
@@ -91,6 +132,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return nav;
   }, [user?.role]);
 
+  if (!isReady) return null;
   if (!user) return null;
 
   const roleText = (role: string) => {

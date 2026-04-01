@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 
 const Icons = {
@@ -23,10 +23,19 @@ const Icons = {
       <path d="m13 5 7 7-7 7" />
     </svg>
   ),
+  Microsoft: () => (
+    <svg width="18" height="18" viewBox="0 0 23 23" aria-hidden="true">
+      <rect width="10" height="10" x="1" y="1" fill="#f25022" />
+      <rect width="10" height="10" x="12" y="1" fill="#7fba00" />
+      <rect width="10" height="10" x="1" y="12" fill="#00a4ef" />
+      <rect width="10" height="10" x="12" y="12" fill="#ffb900" />
+    </svg>
+  ),
 };
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [formData, setFormData] = useState({
     email: '',
@@ -35,6 +44,14 @@ export default function LoginPage() {
 
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [msLoading, setMsLoading] = useState(false);
+
+  useEffect(() => {
+    const err = searchParams.get('error');
+    if (err === 'microsoft_login_failed') setError('เข้าสู่ระบบผ่าน Microsoft ไม่สำเร็จ');
+    if (err === 'microsoft_account_not_allowed') setError('บัญชี Microsoft นี้ยังไม่ได้รับสิทธิ์ใช้งานระบบ');
+    if (err === 'microsoft_email_missing') setError('ไม่พบอีเมลจากบัญชี Microsoft กรุณาติดต่อผู้ดูแลระบบ');
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,44 +76,36 @@ export default function LoginPage() {
       } else {
         setError(data.error || 'เข้าสู่ระบบไม่สำเร็จ');
       }
-    } catch (err) {
+    } catch {
       setError('เกิดข้อผิดพลาดในการเชื่อมต่อ');
     } finally {
       setLoading(false);
     }
   };
 
+  const handleMicrosoftLogin = () => {
+    setMsLoading(true);
+    window.location.href = '/api/auth/microsoft/login';
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
-      {/* soft background blobs */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
         <div className="absolute -top-40 -left-40 w-[420px] h-[420px] rounded-full bg-blue-200/40 blur-3xl" />
         <div className="absolute -bottom-40 -right-40 w-[420px] h-[420px] rounded-full bg-indigo-200/40 blur-3xl" />
       </div>
 
       <div className="relative w-full max-w-md">
-        {/* Brand */}
         <div className="mb-5 flex items-center gap-3">
           <div className="w-12 h-12 rounded-2xl bg-white border border-slate-100 overflow-hidden shadow-md shadow-slate-100 flex items-center justify-center">
-            <Image
-              src="/so-logo.png"
-              alt="SO Logo"
-              width={48}
-              height={48}
-              className="w-full h-full object-cover"
-              priority
-            />
+            <Image src="/so-logo.png" alt="SO Logo" width={48} height={48} className="w-full h-full object-cover" priority />
           </div>
-
           <div className="leading-tight">
-            <div className="text-xl font-bold text-slate-800 tracking-tight">
-              SO LEAD Management System
-            </div>
+            <div className="text-xl font-bold text-slate-800 tracking-tight">SO LEAD Management System</div>
             <div className="text-xs text-slate-400 font-medium">Sign in to continue</div>
           </div>
         </div>
 
-        {/* Card */}
         <div className="bg-white rounded-[1.5rem] border border-slate-100 shadow-sm overflow-hidden">
           <div className="p-7">
             <h1 className="text-lg font-bold text-slate-800">เข้าสู่ระบบ</h1>
@@ -108,13 +117,26 @@ export default function LoginPage() {
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="mt-5 space-y-4">
-              {/* Email */}
+            <button
+              type="button"
+              onClick={handleMicrosoftLogin}
+              disabled={msLoading}
+              className="mt-5 w-full flex items-center justify-center gap-2 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl text-sm font-semibold hover:bg-slate-50 transition-all disabled:opacity-60"
+            >
+              <Icons.Microsoft />
+              {msLoading ? 'กำลังไปยัง Microsoft...' : 'เข้าสู่ระบบด้วย Microsoft'}
+            </button>
+
+            <div className="my-5 flex items-center gap-3">
+              <div className="h-px flex-1 bg-slate-100" />
+              <span className="text-xs font-medium text-slate-400">หรือเข้าสู่ระบบด้วยอีเมลของระบบ</span>
+              <div className="h-px flex-1 bg-slate-100" />
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
               <Field label="อีเมล">
                 <div className="relative">
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                    <Icons.Mail />
-                  </div>
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><Icons.Mail /></div>
                   <input
                     type="email"
                     value={formData.email}
@@ -127,12 +149,9 @@ export default function LoginPage() {
                 </div>
               </Field>
 
-              {/* Password */}
               <Field label="รหัสผ่าน">
                 <div className="relative">
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                    <Icons.Lock />
-                  </div>
+                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"><Icons.Lock /></div>
                   <input
                     type="password"
                     value={formData.password}
@@ -145,7 +164,6 @@ export default function LoginPage() {
                 </div>
               </Field>
 
-              {/* Submit */}
               <button
                 type="submit"
                 disabled={loading}
@@ -156,18 +174,6 @@ export default function LoginPage() {
               </button>
             </form>
           </div>
-
-          {/* Footer */}
-          <div className="px-7 py-5 bg-slate-50 border-t border-slate-100">
-            <div className="text-xs text-slate-400 space-y-1">
-              <p>เวอร์ชัน 2.0 ทดสอบการใช้งานทุกแผนก</p>
-              <p>หากพบปัญหาการใช้งานกรุณาแจ้งคุณภูริ</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-4 text-center text-xs text-slate-400">
-          © {new Date().getFullYear()} SO CRM System
         </div>
       </div>
     </div>
