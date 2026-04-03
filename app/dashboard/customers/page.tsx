@@ -861,6 +861,7 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
   const [error, setError] = useState('');
   const [showDuplicateConfirm, setShowDuplicateConfirm] = useState(false);
   const [duplicateInfo, setDuplicateInfo] = useState<any>(null);
+  const [ocrBusinessCards, setOcrBusinessCards] = useState<any[]>([]);
 
   useEffect(() => {
     if (!formData.department && defaultDepartment) {
@@ -971,9 +972,11 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
       if (response.ok) {
         setShowDuplicateConfirm(false);
         setDuplicateInfo(null);
+        setOcrBusinessCards([]);
         onSuccess();
       } else if (response.status === 409 && data?.duplicate) {
         setDuplicateInfo(data.existing_customer || null);
+        setOcrBusinessCards(Array.isArray(data.ocr_business_cards) ? data.ocr_business_cards : []);
         setShowDuplicateConfirm(true);
       } else {
         setError(data.error || 'เกิดข้อผิดพลาด');
@@ -992,18 +995,52 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
 
   return (
     <div className="fixed inset-0 bg-slate-900/30 backdrop-blur-[2px] flex items-center justify-center z-50 p-4">
-      {showDuplicateConfirm && duplicateInfo && (
+      {showDuplicateConfirm && (duplicateInfo || ocrBusinessCards.length > 0) && (
         <div className="absolute inset-0 bg-slate-900/40 flex items-center justify-center z-[60] p-4">
           <div className="bg-white rounded-[1.5rem] shadow-2xl max-w-lg w-full p-6 border border-slate-100">
             <h4 className="text-lg font-bold text-slate-800">พบลูกค้ารายนี้อยู่แล้วในระบบ</h4>
             <p className="text-sm text-slate-500 mt-1">ข้อมูลนี้มีไว้เพื่อให้แต่ละแผนกสามารถแชร์และประสานงานกันได้</p>
 
-            <div className="mt-4 rounded-2xl bg-blue-50 border border-blue-100 p-4 space-y-2 text-sm text-slate-700">
-              <div><span className="font-semibold">ชื่อบริษัท:</span> {duplicateInfo.company_name || '-'}</div>
-              <div><span className="font-semibold">แผนก:</span> {duplicateInfo.department || '-'}</div>
-              <div><span className="font-semibold">Sale ผู้ดูแล:</span> {duplicateInfo.sales_person_name || '-'}</div>
-              <div><span className="font-semibold">บริการที่ใช้:</span> {duplicateInfo.service_names || '-'}</div>
-            </div>
+            {duplicateInfo && (
+              <div className="mt-4 rounded-2xl bg-blue-50 border border-blue-100 p-4 space-y-2 text-sm text-slate-700">
+                <div className="font-semibold text-slate-800">ข้อมูลจากระบบ CRM</div>
+                <div><span className="font-semibold">ชื่อบริษัท:</span> {duplicateInfo.company_name || formData.company_name || '-'}</div>
+                <div><span className="font-semibold">แผนก:</span> {duplicateInfo.department || '-'}</div>
+                <div><span className="font-semibold">Sale ผู้ดูแล:</span> {duplicateInfo.sales_person_name || '-'}</div>
+                <div><span className="font-semibold">บริการที่ใช้:</span> {duplicateInfo.service_names || '-'}</div>
+              </div>
+            )}
+
+            {ocrBusinessCards.length > 0 && (
+              <div className="mt-4 rounded-2xl bg-red-50 border border-red-100 p-4 space-y-3 text-sm text-slate-700">
+                <div className="font-semibold text-slate-800">ข้อมูลจากระบบบันทึกนามบัตร</div>
+                {ocrBusinessCards.map((card: any) => {
+                  const owners = Array.isArray(card?.owners) ? card.owners : [];
+                  return (
+                    <div key={card.business_card_id} className="rounded-xl border border-red-100 bg-white/80 p-3 space-y-2">
+                      <div><span className="font-semibold">ชื่อบริษัท:</span> {card.company_name || formData.company_name || '-'}</div>
+                      <div><span className="font-semibold">จำนวน connection:</span> {card.total_connections || 0}</div>
+                      <div>
+                        <span className="font-semibold">เจ้าของนามบัตร:</span>{' '}
+                        {owners.length > 0 ? (
+                          <div className="mt-2 space-y-1">
+                            {owners.map((owner: any, index: number) => (
+                              <div key={`${card.business_card_id}-${owner?.card_record_id || index}`} className="text-slate-600">
+                                - {owner?.user_name || '-'}
+                                {owner?.user_email ? ` (${owner.user_email})` : ''}
+                                {owner?.source_name ? ` | แหล่งที่มา: ${owner.source_name}` : ''}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          '-'
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
             <div className="mt-5 text-sm font-semibold text-slate-800">คุณยืนยันที่จะทำการบันทึกลูกค้ารายนี้หรือไม่?</div>
 
@@ -1013,6 +1050,7 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
                 onClick={() => {
                   setShowDuplicateConfirm(false);
                   setDuplicateInfo(null);
+                  setOcrBusinessCards([]);
                 }}
                 className="flex-1 py-2.5 border border-slate-200 rounded-xl text-sm font-semibold text-slate-500 hover:bg-slate-50 transition-all"
               >

@@ -200,16 +200,66 @@ export async function POST(request: NextRequest) {
         [company_name]
       );
 
-      if (duplicateResult.rows.length > 0) {
-        const dup = duplicateResult.rows[0];
+      const ocrBusinessCardResult = await client.query(
+        `SELECT
+           bc."id" AS business_card_id,
+           bc."companyTh" AS company_name,
+           COALESCE(
+             jsonb_agg(
+               DISTINCT jsonb_build_object(
+                 'card_record_id', cr."id",
+                 'user_id', u."id",
+                 'user_name', u."name",
+                 'user_email', u."email",
+                 'source_id', s."id",
+                 'source_name', s."name"
+               )
+             ) FILTER (WHERE cr."id" IS NOT NULL),
+             '[]'::jsonb
+           ) AS owners,
+           COUNT(DISTINCT cr."id")::int AS total_connections
+         FROM "ocr-ai-db"."BusinessCard" bc
+         LEFT JOIN "ocr-ai-db"."CardRecord" cr ON cr."businessCardId" = bc."id"
+         LEFT JOIN "ocr-ai-db"."User" u ON u."id" = cr."userId"
+         LEFT JOIN "ocr-ai-db"."Source" s ON s."id" = cr."sourceId"
+         WHERE LOWER(BTRIM(COALESCE(bc."companyTh", ''))) = LOWER(BTRIM($1))
+         GROUP BY bc."id", bc."companyTh"
+         ORDER BY bc."updatedAt" DESC NULLS LAST, bc."createdAt" DESC NULLS LAST`,
+        [company_name]
+      );
+
+      const crmDuplicate = duplicateResult.rows[0] || null;
+      const ocrBusinessCards = ocrBusinessCardResult.rows || [];
+
+      if (crmDuplicate || ocrBusinessCards.length > 0) {
+        const errorParts: string[] = [];
+
+        if (crmDuplicate) {
+          errorParts.push(
+            `พบลูกค้าชื่อนี้อยู่แล้วในระบบ CRM\nแผนก: ${crmDuplicate.department || '-'}\nSale ผู้ดูแล: ${crmDuplicate.sales_person_name || '-'}\nบริการที่ใช้: ${crmDuplicate.service_names || '-'}`
+          );
+        }
+
+        if (ocrBusinessCards.length > 0) {
+          const firstCard = ocrBusinessCards[0];
+          const ownerNames = Array.isArray(firstCard.owners)
+            ? firstCard.owners
+                .map((owner: any) => owner?.user_name || owner?.user_email)
+                .filter(Boolean)
+                .join(', ')
+            : '';
+
+          errorParts.push(
+            `พบข้อมูลบริษัทนี้ในระบบบันทึกนามบัตร${ownerNames ? `\nเจ้าของนามบัตร: ${ownerNames}` : ''}`
+          );
+        }
+
         return NextResponse.json(
           {
-            error: `มีลูกค้าชื่อนี้อยู่แล้วในระบบ
-แผนก: ${dup.department || '-'}
-Sale ผู้ดูแล: ${dup.sales_person_name || '-'}
-บริการที่ใช้: ${dup.service_names || '-'}`,
+            error: errorParts.join('\n\n'),
             duplicate: true,
-            existing_customer: dup,
+            existing_customer: crmDuplicate,
+            ocr_business_cards: ocrBusinessCards,
           },
           { status: 409 }
         );
