@@ -196,6 +196,7 @@ export async function GET(request: NextRequest) {
         department: user.department,
         role: user.role,
         full_name: user.full_name,
+        allowed_departments: Array.isArray(user.allowed_departments) ? user.allowed_departments : [],
       } as any);
 
       const response = NextResponse.redirect(new URL('/dashboard', appUrl));

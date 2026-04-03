@@ -53,6 +53,7 @@ export async function POST(request: NextRequest) {
       department: user.department,
       role: user.role,
       full_name: user.full_name,
+      allowed_departments: Array.isArray(user.allowed_departments) ? user.allowed_departments : [],
     } as any);
 
     const response = NextResponse.json({
@@ -63,6 +64,7 @@ export async function POST(request: NextRequest) {
         full_name: user.full_name,
         department: user.department,
         role: user.role,
+        allowed_departments: Array.isArray(user.allowed_departments) ? user.allowed_departments : [],
       },
     });
 

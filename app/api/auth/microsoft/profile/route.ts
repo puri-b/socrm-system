@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     const full_name = `${first_name} ${last_name}`.trim();
 
     const existing = await query(
-      `SELECT user_id, email, full_name, department, role, is_active
+      `SELECT user_id, email, full_name, department, role, is_active, allowed_departments
        FROM x_socrm.users
        WHERE LOWER(email) = LOWER($1)
        LIMIT 1`,
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
           email, password_hash, full_name, first_name, last_name, department,
           role, is_active, user_provider, provider_user_id, allow_local_login, allow_sso_login
         ) VALUES ($1, $2, $3, $4, $5, $6, 'user', true, 'AzureAD', $7, false, true)
-        RETURNING user_id, email, full_name, department, role, is_active`,
+        RETURNING user_id, email, full_name, department, role, is_active, allowed_departments`,
         [email, passwordHash, full_name, first_name, last_name, department, providerUserId]
       );
 
@@ -78,6 +78,7 @@ export async function POST(request: NextRequest) {
       department: user.department,
       role: user.role,
       full_name: user.full_name,
+      allowed_departments: Array.isArray(user.allowed_departments) ? user.allowed_departments : [],
     } as any);
 
     const response = NextResponse.json({
@@ -88,6 +89,7 @@ export async function POST(request: NextRequest) {
         full_name: user.full_name,
         department: user.department,
         role: user.role,
+        allowed_departments: Array.isArray(user.allowed_departments) ? user.allowed_departments : [],
       },
     });
 
