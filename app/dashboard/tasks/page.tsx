@@ -1,68 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
-// --- Internal SVG Icons ---
 const Icons = {
   Plus: () => (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <line x1="12" y1="5" x2="12" y2="19" />
       <line x1="5" y1="12" x2="19" y2="12" />
     </svg>
   ),
-  Excel: () => (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
-      <polyline points="14 2 14 8 20 8" />
-      <path d="M8 13h2v7" />
-      <path d="M12 13v7" />
-      <path d="M16 13v7" />
-      <path d="M8 13h8" />
-    </svg>
-  ),
-  Filter: () => (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
-    </svg>
-  ),
   Calendar: () => (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
       <line x1="16" y1="2" x2="16" y2="6" />
       <line x1="8" y1="2" x2="8" y2="6" />
@@ -70,42 +18,36 @@ const Icons = {
     </svg>
   ),
   Close: () => (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <line x1="18" y1="6" x2="6" y2="18" />
       <line x1="6" y1="6" x2="18" y2="18" />
     </svg>
   ),
   Alert: () => (
-    <svg
-      width="12"
-      height="12"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
       <circle cx="12" cy="12" r="10" />
       <line x1="12" y1="8" x2="12" y2="12" />
       <line x1="12" y1="16" x2="12.01" y2="16" />
     </svg>
-  )
+  ),
+  Folder: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />
+    </svg>
+  ),
+  List: () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <line x1="8" y1="6" x2="21" y2="6" />
+      <line x1="8" y1="12" x2="21" y2="12" />
+      <line x1="8" y1="18" x2="21" y2="18" />
+      <line x1="3" y1="6" x2="3.01" y2="6" />
+      <line x1="3" y1="12" x2="3.01" y2="12" />
+      <line x1="3" y1="18" x2="3.01" y2="18" />
+    </svg>
+  ),
 };
 
-// ✅ สถานะที่ “ปิดงาน” แล้ว ต้องล็อค dropdown (ห้ามแก้ไขต่อ)
 const LOCK_STATUSES = new Set(['completed', 'cancelled']);
-
-// ✅ สถานะที่ต้องให้ผู้ใช้ใส่หมายเหตุ/เหตุผลก่อนส่ง (แทน prompt ของ browser)
 const NOTE_REQUIRED_STATUSES = new Set(['postponed']);
 const NOTE_REQUEST_STATUSES = new Set(['completed', 'cancelled', 'postponed']);
 
@@ -118,8 +60,36 @@ function formatDateTimeTH(value: any) {
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
-    minute: '2-digit'
+    minute: '2-digit',
   });
+}
+
+function formatDateTH(value: any) {
+  if (!value) return '—';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('th-TH', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+}
+
+function normalizeAssignees(task: any) {
+  if (Array.isArray(task?.assignees) && task.assignees.length > 0) {
+    return task.assignees.filter((a: any) => a && a.user_id);
+  }
+
+  if (task?.assigned_to) {
+    return [
+      {
+        user_id: task.assigned_to,
+        name: task.assigned_to_name || '—',
+      },
+    ];
+  }
+
+  return [];
 }
 
 export default function TasksPage() {
@@ -127,36 +97,30 @@ export default function TasksPage() {
   const [tasks, setTasks] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
-  const [filteredTasks, setFilteredTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
 
-  // ✅ Modal ใส่หมายเหตุ/เหตุผล (แทน prompt ของ browser)
   const [noteOpen, setNoteOpen] = useState(false);
   const [noteSubmitting, setNoteSubmitting] = useState(false);
   const [noteTaskId, setNoteTaskId] = useState<number | null>(null);
   const [noteNextStatus, setNoteNextStatus] = useState<string>('');
   const [noteText, setNoteText] = useState('');
 
-  // ✅ Modal อนุมัติ/ไม่อนุมัติ (กรณีมีคำขอเปลี่ยนสถานะรออนุมัติ)
   const [approvalOpen, setApprovalOpen] = useState(false);
   const [approvalSubmitting, setApprovalSubmitting] = useState(false);
   const [approvalTask, setApprovalTask] = useState<any>(null);
   const [approvalDecisionNote, setApprovalDecisionNote] = useState('');
 
   const [statusFilter, setStatusFilter] = useState('all');
-  const [assignedFilter, setAssignedFilter] = useState('all');
-  const [projectFilter, setProjectFilter] = useState('all');
-
-  // ✅ customer filter
   const [customerFilter, setCustomerFilter] = useState('all');
+  const [projectFilter, setProjectFilter] = useState('all');
+  const [assignedFilter, setAssignedFilter] = useState('all');
 
-  // ✅ ล้างตัวกรอง
   const resetFilters = () => {
     setStatusFilter('all');
-    setAssignedFilter('all');
     setCustomerFilter('all');
     setProjectFilter('all');
+    setAssignedFilter('all');
   };
 
   useEffect(() => {
@@ -165,24 +129,21 @@ export default function TasksPage() {
       setUser(JSON.parse(userData));
       fetchData();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  useEffect(() => {
-    filterTasks();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks, statusFilter, assignedFilter, projectFilter, customerFilter]);
 
   const fetchData = async () => {
     try {
+      setLoading(true);
       const [tasksRes, customersRes, usersRes] = await Promise.all([
         fetch('/api/tasks'),
         fetch('/api/customers'),
-        fetch('/api/users')
+        fetch('/api/users'),
       ]);
+
       const tasksData = await tasksRes.json();
       const customersData = await customersRes.json();
       const usersData = await usersRes.json();
+
       setTasks(tasksData.tasks || []);
       setCustomers(customersData.customers || []);
       setUsers(usersData.users || []);
@@ -193,14 +154,16 @@ export default function TasksPage() {
     }
   };
 
-  const filterTasks = () => {
-    let filtered = tasks;
+  const filteredTasks = useMemo(() => {
+    let filtered = [...tasks];
 
-    if (statusFilter !== 'all') filtered = filtered.filter((t: any) => t.status === statusFilter);
-    if (assignedFilter !== 'all') filtered = filtered.filter((t: any) => t.assigned_to === parseInt(assignedFilter));
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter((t: any) => t.status === statusFilter);
+    }
 
-    // ✅ customer filter
-    if (customerFilter !== 'all') filtered = filtered.filter((t: any) => Number(t.customer_id) === Number(customerFilter));
+    if (customerFilter !== 'all') {
+      filtered = filtered.filter((t: any) => Number(t.customer_id) === Number(customerFilter));
+    }
 
     if (projectFilter !== 'all') {
       if (projectFilter === 'none') {
@@ -210,15 +173,75 @@ export default function TasksPage() {
       }
     }
 
-    setFilteredTasks(filtered);
-  };
+    if (assignedFilter !== 'all') {
+      filtered = filtered.filter((t: any) => {
+        const assignees = normalizeAssignees(t);
+        return assignees.some((a: any) => Number(a.user_id) === Number(assignedFilter));
+      });
+    }
+
+    return filtered;
+  }, [tasks, statusFilter, customerFilter, projectFilter, assignedFilter]);
+
+  const groupedCards = useMemo(() => {
+    const map = new Map<string, any>();
+
+    for (const task of filteredTasks) {
+      const key = task.project_id ? `project-${task.project_id}` : `general-${task.customer_id || 'none'}`;
+
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          project_id: task.project_id || null,
+          project_name: task.project_name || 'งานทั่วไป',
+          project_type: task.project_type || null,
+          customer_id: task.customer_id || null,
+          company_name: task.company_name || '—',
+          tasks: [],
+        });
+      }
+
+      map.get(key).tasks.push(task);
+    }
+
+    const groups = Array.from(map.values()).map((group: any) => {
+      const totalTasks = group.tasks.length;
+      const completedTasks = group.tasks.filter((t: any) => t.status === 'completed').length;
+      const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+      const assigneeMap = new Map<number, any>();
+      group.tasks.forEach((task: any) => {
+        normalizeAssignees(task).forEach((a: any) => {
+          assigneeMap.set(Number(a.user_id), a);
+        });
+      });
+
+      return {
+        ...group,
+        totalTasks,
+        completedTasks,
+        progress,
+        assignees: Array.from(assigneeMap.values()),
+      };
+    });
+
+    groups.sort((a: any, b: any) => {
+      const aMax = Math.max(...a.tasks.map((t: any) => new Date(t.created_at || 0).getTime()));
+      const bMax = Math.max(...b.tasks.map((t: any) => new Date(t.created_at || 0).getTime()));
+      return bMax - aMax;
+    });
+
+    return groups;
+  }, [filteredTasks]);
 
   const isOverdue = (dateStr: string, status: string) => {
-    if (LOCK_STATUSES.has(status)) return false;
+    if (!dateStr || LOCK_STATUSES.has(status)) return false;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+
     const taskDate = new Date(dateStr);
     taskDate.setHours(0, 0, 0, 0);
+
     return taskDate < today;
   };
 
@@ -239,7 +262,6 @@ export default function TasksPage() {
 
   const canUserApprove = (task: any) => {
     if (!user || !task) return false;
-    // ผู้อนุมัติหลัก: ผู้สร้างงาน (created_by) หรือ admin
     return user.role === 'admin' || Number(task.created_by) === Number(user.user_id);
   };
 
@@ -253,13 +275,18 @@ export default function TasksPage() {
 
   const submitApprovalDecision = async (decision: 'approved' | 'rejected') => {
     if (!approvalTask?.pending_request_id) return;
+
     try {
       setApprovalSubmitting(true);
+
       const payload: any = {
         request_id: Number(approvalTask.pending_request_id),
         decision,
       };
-      if (approvalDecisionNote.trim()) payload.decision_note = approvalDecisionNote.trim();
+
+      if (approvalDecisionNote.trim()) {
+        payload.decision_note = approvalDecisionNote.trim();
+      }
 
       const res = await fetch('/api/tasks/status-requests', {
         method: 'PATCH',
@@ -268,8 +295,8 @@ export default function TasksPage() {
       });
 
       if (!res.ok) {
-        console.error('approve/reject failed:', await res.text());
-        alert('อนุมัติไม่สำเร็จ (โปรดลองใหม่)');
+        console.error(await res.text());
+        alert('อนุมัติไม่สำเร็จ');
         setApprovalSubmitting(false);
         return;
       }
@@ -278,7 +305,7 @@ export default function TasksPage() {
       closeApprovalModal();
     } catch (e) {
       console.error(e);
-      alert('อนุมัติไม่สำเร็จ (โปรดลองใหม่)');
+      alert('อนุมัติไม่สำเร็จ');
       setApprovalSubmitting(false);
     }
   };
@@ -286,15 +313,18 @@ export default function TasksPage() {
   const doPatchTaskStatus = async (taskId: number, newStatus: string, note?: string) => {
     const payload: any = { task_id: taskId, status: newStatus };
     if (note && note.trim()) payload.note = note.trim();
+
     const response = await fetch('/api/tasks', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
     });
+
     if (response.ok) {
       await fetchData();
       return true;
     }
+
     return false;
   };
 
@@ -302,13 +332,11 @@ export default function TasksPage() {
     const task = tasks.find((t: any) => Number(t.task_id) === Number(taskId));
     if (!task) return;
 
-    // ✅ ถ้ามีคำขอรออนุมัติอยู่แล้ว ห้ามทำอะไรเพิ่ม
     if (task.pending_request_id) return;
 
-    // ✅ ให้ผู้ถูก assign เท่านั้นที่เปลี่ยนสถานะได้ (ส่งคำขอ/อัปเดต)
+    // ยังใช้ assigned_to หลักตาม backend เดิม
     if (!user || Number(task.assigned_to) !== Number(user.user_id)) return;
 
-    // ✅ ถ้าสถานะนี้ต้องใส่หมายเหตุ ให้เปิด modal ของระบบ
     if (NOTE_REQUEST_STATUSES.has(newStatus)) {
       setNoteTaskId(taskId);
       setNoteNextStatus(newStatus);
@@ -327,7 +355,6 @@ export default function TasksPage() {
   const submitNoteAndUpdate = async () => {
     if (!noteTaskId || !noteNextStatus) return;
 
-    // บังคับใส่เหตุผลเฉพาะบางสถานะ
     if (NOTE_REQUIRED_STATUSES.has(noteNextStatus) && !noteText.trim()) {
       return;
     }
@@ -350,7 +377,7 @@ export default function TasksPage() {
       completed: 'bg-emerald-50 text-emerald-700 border-emerald-200',
       cancelled: 'bg-rose-50 text-rose-700 border-rose-200',
       postponed: 'bg-amber-50 text-amber-700 border-amber-200',
-      not_approved: 'bg-slate-50 text-slate-500 border-slate-200'
+      not_approved: 'bg-slate-50 text-slate-500 border-slate-200',
     };
     return styles[status] || 'bg-slate-100 text-slate-600 border-slate-200';
   };
@@ -362,7 +389,7 @@ export default function TasksPage() {
       completed: 'เสร็จสิ้น',
       cancelled: 'ยกเลิก',
       postponed: 'ขอเลื่อน',
-      not_approved: 'ไม่อนุมัติ'
+      not_approved: 'ไม่อนุมัติ',
     };
     return texts[status] || status;
   };
@@ -377,34 +404,27 @@ export default function TasksPage() {
 
   return (
     <div className="p-8 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
         <div>
           <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight">งาน (Tasks)</h1>
-          <p className="text-sm text-slate-500 mt-1">ติดตามงานและอัปเดตสถานะงานในทีม</p>
+          <p className="text-sm text-slate-500 mt-1">แสดงผลแบบการ์ดตามโปรเจค พร้อม milestone และความคืบหน้า</p>
         </div>
 
         <button
           onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 shadow-md shadow-blue-100 transition-all"
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 shadow-md shadow-blue-100 transition-all"
         >
           <Icons.Plus />
           เพิ่มงานใหม่
         </button>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col lg:flex-row lg:items-center gap-3">
-        <div className="flex items-center gap-2 text-slate-500">
-          <Icons.Filter />
-          <span className="text-sm font-semibold">ตัวกรอง</span>
-        </div>
-
-        <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="bg-white rounded-[1.5rem] border border-slate-100 shadow-sm p-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-medium text-slate-600 focus:ring-2 focus:ring-blue-500 outline-none"
+            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="all">สถานะทั้งหมด</option>
             <option value="pending">รอดำเนินการ</option>
@@ -417,7 +437,7 @@ export default function TasksPage() {
           <select
             value={assignedFilter}
             onChange={(e) => setAssignedFilter(e.target.value)}
-            className="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-medium text-slate-600 focus:ring-2 focus:ring-blue-500 outline-none"
+            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="all">ผู้รับผิดชอบทั้งหมด</option>
             {users.map((u: any) => (
@@ -430,7 +450,7 @@ export default function TasksPage() {
           <select
             value={customerFilter}
             onChange={(e) => setCustomerFilter(e.target.value)}
-            className="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-medium text-slate-600 focus:ring-2 focus:ring-blue-500 outline-none"
+            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="all">ลูกค้าทั้งหมด</option>
             {customers.map((c: any) => (
@@ -443,10 +463,10 @@ export default function TasksPage() {
           <select
             value={projectFilter}
             onChange={(e) => setProjectFilter(e.target.value)}
-            className="w-full px-4 py-2 bg-slate-50 border-none rounded-xl text-sm font-medium text-slate-600 focus:ring-2 focus:ring-blue-500 outline-none"
+            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="all">โปรเจคทั้งหมด</option>
-            <option value="none">ไม่ระบุโปรเจค</option>
+            <option value="none">ไม่มีโปรเจค</option>
             {Array.from(
               new Map(
                 tasks
@@ -459,185 +479,237 @@ export default function TasksPage() {
               </option>
             ))}
           </select>
-        </div>
 
-        <button
-          type="button"
-          onClick={resetFilters}
-          className="px-4 py-2 rounded-xl text-sm font-semibold bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all whitespace-nowrap"
-        >
-          ล้างตัวกรอง
-        </button>
+          <button
+            type="button"
+            onClick={resetFilters}
+            className="px-4 py-2.5 rounded-xl text-sm font-semibold bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all"
+          >
+            ล้างตัวกรอง
+          </button>
+        </div>
       </div>
 
-      {/* --- Table --- */}
-      <div className="bg-white rounded-[1.5rem] border border-slate-100 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead>
-              <tr className="bg-slate-50 border-b border-slate-100">
-                <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">รายละเอียดงาน</th>
-                <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">ลูกค้า</th>
-                <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">ผู้รับผิดชอบ / กำหนดส่ง</th>
+      <div className="space-y-4">
+        {groupedCards.length === 0 ? (
+          <div className="bg-white rounded-[1.5rem] border border-slate-100 shadow-sm p-10 text-center text-sm text-slate-400">
+            ไม่พบข้อมูลตามตัวกรองที่เลือก
+          </div>
+        ) : (
+          groupedCards.map((group: any) => (
+            <div key={group.key} className="bg-white rounded-[1.5rem] border border-slate-100 shadow-sm overflow-hidden">
+              <div className="p-5 border-b border-blue-100 bg-gradient-to-r from-blue-100 to-white">
+                <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-4">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-slate-700">
+                      {group.project_id ? <Icons.Folder /> : <Icons.List />}
+                      <h2 className="text-lg font-bold text-slate-800">
+                        {group.project_id ? group.project_name : 'งานทั่วไป'}
+                      </h2>
+                      {group.project_type && (
+                        <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-100">
+                          {group.project_type}
+                        </span>
+                      )}
+                    </div>
 
-                {/* ✅ NEW columns */}
-                <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">วันที่สร้าง</th>
-                <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">อัปเดตล่าสุด</th>
+                    <div className="flex flex-wrap items-center gap-2 text-sm text-slate-500">
+                      <span className="font-semibold text-slate-700">{group.company_name}</span>
+                      <span>•</span>
+                      <span>{group.totalTasks} งาน</span>
+                      <span>•</span>
+                      <span>สำเร็จแล้ว {group.completedTasks} งาน</span>
+                    </div>
 
-                <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase">สถานะ</th>
-                <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase text-right">ดำเนินการ</th>
-              </tr>
-            </thead>
+                    <div className="flex flex-wrap gap-2">
+                      {group.assignees.length > 0 ? (
+                        group.assignees.map((a: any) => (
+                          <span
+                            key={a.user_id}
+                            className="inline-flex items-center px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-semibold"
+                          >
+                            {a.name}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-xs text-slate-400">ยังไม่มีผู้รับผิดชอบ</span>
+                      )}
+                    </div>
+                  </div>
 
-            <tbody className="divide-y divide-slate-50">
-              {filteredTasks.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-slate-400 text-sm">
-                    ไม่พบงานตามตัวกรองที่เลือก
-                  </td>
-                </tr>
-              ) : (
-                filteredTasks.map((task: any) => (
-                  <tr
-                    key={task.task_id}
-                    onClick={() => openApprovalModal(task)}
-                    className={`hover:bg-slate-50/50 transition-colors ${
-                      task.pending_request_id && canUserApprove(task) ? 'cursor-pointer' : ''
-                    }`}
-                  >
-                    {/* Details */}
-                    <td className="px-6 py-4">
-                      <div className="space-y-1">
-                        <div className="text-sm font-bold text-slate-800">{task.title}</div>
-                        {task.description && <div className="text-xs text-slate-500 line-clamp-2">{task.description}</div>}
-                        {task.project_name && (
-                          <div className="inline-flex items-center gap-2 text-xs text-slate-500">
-                            <span className="px-2 py-0.5 rounded-lg bg-slate-50 border border-slate-100">
-                              {task.project_name}
-                            </span>
-                          </div>
-                        )}
+                  <div className="w-full xl:w-[360px] xl:min-w-[360px]">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-semibold text-slate-500">Progress</span>
+                      <span className="text-sm font-bold text-slate-800">{group.progress}%</span>
+                    </div>
+                    <div className="w-full h-3 rounded-full bg-slate-100 overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-blue-500 to-emerald-500 transition-all duration-300"
+                        style={{ width: `${group.progress}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
 
-                        {/* pending request info */}
-                        {task.pending_request_id && (
-                          <div className="mt-2 p-3 rounded-xl bg-amber-50 border border-amber-100 text-amber-800">
-                            <div className="text-xs font-semibold">รออนุมัติการเปลี่ยนสถานะ</div>
-                            <div className="text-[11px] mt-1">
-                              ขอเป็น: <b>{getStatusText(task.pending_requested_status)}</b>
-                              {task.pending_requested_by_name ? (
-                                <>
-                                  {' '}
-                                  โดย <b>{task.pending_requested_by_name}</b>
-                                </>
-                              ) : null}
-                              {task.pending_requested_at ? <> • {formatDateTimeTH(task.pending_requested_at)}</> : null}
+              <div className="divide-y divide-slate-100">
+                {group.tasks.map((task: any) => {
+                  const assignees = normalizeAssignees(task);
+                  const canApprove = task.pending_request_id && canUserApprove(task);
+                  const canChangeStatus =
+                    !LOCK_STATUSES.has(task.status) &&
+                    !task.pending_request_id &&
+                    !!user &&
+                    Number(task.assigned_to) === Number(user.user_id);
+
+                  return (
+                    <div
+                      key={task.task_id}
+                      onClick={() => canApprove && openApprovalModal(task)}
+                      className={`p-5 transition ${
+                        canApprove ? 'cursor-pointer hover:bg-amber-50/50' : 'hover:bg-slate-50/50'
+                      }`}
+                    >
+                      <div className="flex flex-col xl:flex-row xl:items-start gap-4">
+                        <div className="flex items-start gap-3 flex-1 min-w-0">
+                          <div className="pt-1">
+                            <div
+                              className={`w-5 h-5 rounded-md border flex items-center justify-center ${
+                                task.status === 'completed'
+                                  ? 'bg-emerald-500 border-emerald-500 text-white'
+                                  : 'bg-white border-slate-300 text-transparent'
+                              }`}
+                            >
+                              ✓
                             </div>
-                            {task.pending_note ? (
-                              <div className="text-[11px] mt-1 text-amber-700 whitespace-pre-wrap">หมายเหตุ: {task.pending_note}</div>
-                            ) : null}
-                            {canUserApprove(task) ? (
-                              <div className="text-[11px] mt-2 text-amber-800">
-                                * คลิกแถวนี้เพื่อ “อนุมัติ / ไม่อนุมัติ”
-                              </div>
-                            ) : (
-                              <div className="text-[11px] mt-2 text-amber-800">
-                                * รอผู้สร้างงานทำการพิจารณา
+                          </div>
+
+                          <div className="space-y-2 min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3
+                                className={`text-sm font-bold ${
+                                  task.status === 'completed' ? 'text-slate-400 line-through' : 'text-slate-800'
+                                }`}
+                              >
+                                {task.title}
+                              </h3>
+
+                              <span
+                                className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold border ${getStatusStyle(
+                                  task.status
+                                )}`}
+                              >
+                                {getStatusText(task.status)}
+                              </span>
+
+                              {task.pending_request_id && (
+                                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold border bg-amber-50 text-amber-700 border-amber-100">
+                                  รออนุมัติ
+                                </span>
+                              )}
+                            </div>
+
+                            {task.description && (
+                              <p className="text-sm text-slate-500 whitespace-pre-wrap">{task.description}</p>
+                            )}
+
+                            <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                              <span className="inline-flex items-center gap-1">
+                                <Icons.Calendar />
+                                กำหนดส่ง: {formatDateTH(task.task_date)}
+                              </span>
+
+                              {isOverdue(task.task_date, task.status) && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-100">
+                                  <Icons.Alert />
+                                  เกินกำหนด
+                                </span>
+                              )}
+
+                              <span>สร้างเมื่อ: {formatDateTimeTH(task.created_at)}</span>
+                              <span>อัปเดตล่าสุด: {formatDateTimeTH(task.updated_at)}</span>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-2 pt-1">
+  {assignees.length > 0 ? (
+    assignees.map((a: any) => {
+      const isPrimary =
+        Number(a.user_id) === Number(task.assigned_to);
+
+      return (
+        <span
+          key={a.user_id}
+          className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold border ${
+            isPrimary
+              ? 'bg-blue-600 text-white border-blue-600'
+              : 'bg-slate-100 text-slate-700 border-slate-200'
+          }`}
+        >
+          {isPrimary && '• '}
+          {a.name}
+          {isPrimary && ' (ผู้รับผิดชอบหลัก)'}
+        </span>
+      );
+    })
+  ) : (
+    <span className="text-xs text-slate-400">ยังไม่มีผู้รับผิดชอบ</span>
+  )}
+</div>
+
+                            {task.pending_request_id && (
+                              <div className="mt-2 p-3 rounded-xl bg-amber-50 border border-amber-100 text-amber-800">
+                                <div className="text-xs font-semibold">รออนุมัติการเปลี่ยนสถานะ</div>
+                                <div className="text-[11px] mt-1">
+                                  ขอเป็น <b>{getStatusText(task.pending_requested_status)}</b>
+                                  {task.pending_requested_by_name ? (
+                                    <>
+                                      {' '}
+                                      โดย <b>{task.pending_requested_by_name}</b>
+                                    </>
+                                  ) : null}
+                                  {task.pending_requested_at ? <> • {formatDateTimeTH(task.pending_requested_at)}</> : null}
+                                </div>
+                                {task.pending_note ? (
+                                  <div className="text-[11px] mt-1 whitespace-pre-wrap">หมายเหตุ: {task.pending_note}</div>
+                                ) : null}
+                                {canApprove ? (
+                                  <div className="text-[11px] mt-2">* คลิกการ์ดงานนี้เพื่ออนุมัติ / ไม่อนุมัติ</div>
+                                ) : (
+                                  <div className="text-[11px] mt-2">* รอผู้สร้างงานทำการพิจารณา</div>
+                                )}
                               </div>
                             )}
                           </div>
-                        )}
-                      </div>
-                    </td>
+                        </div>
 
-                    {/* Customer */}
-                    <td className="px-6 py-4">
-                      <div className="text-sm font-semibold text-slate-700">{task.company_name || '—'}</div>
-                    </td>
-
-                    {/* Assigned + Due */}
-                    <td className="px-6 py-4">
-                      <div className="space-y-1">
-                        <div className="text-sm font-semibold text-slate-700">{task.assigned_to_name || '—'}</div>
-                        <div
-                          className={`inline-flex items-center gap-1 text-xs font-semibold ${
-                            isOverdue(task.task_date, task.status) ? 'text-rose-600' : 'text-slate-500'
-                          }`}
-                        >
-                          <Icons.Calendar />
-                          {formatDateTimeTH(task.task_date)}
-                          {isOverdue(task.task_date, task.status) && (
-                            <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-100">
-                              <Icons.Alert />
-                              เกินกำหนด
-                            </span>
-                          )}
+                        <div className="w-full xl:w-[220px] xl:min-w-[220px]">
+                          <select
+                            value={task.status}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={(e) => updateTaskStatus(task.task_id, e.target.value)}
+                            disabled={!canChangeStatus}
+                            className={`w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-600 outline-none transition ${
+                              canChangeStatus ? 'hover:border-blue-300 cursor-pointer' : 'opacity-60 cursor-not-allowed'
+                            }`}
+                          >
+                            <option value="pending">รอดำเนินการ</option>
+                            <option value="in_progress">กำลังทำ</option>
+                            <option value="completed">เสร็จสิ้น (ขออนุมัติ)</option>
+                            <option value="postponed">ขอเลื่อน (ขออนุมัติ)</option>
+                            <option value="cancelled">ยกเลิก (ขออนุมัติ)</option>
+                          </select>
+                          <p className="text-[11px] text-slate-400 mt-2">
+                            เปลี่ยนสถานะได้เฉพาะผู้รับผิดชอบหลักของงาน
+                          </p>
                         </div>
                       </div>
-                    </td>
-
-                    {/* ✅ Created at */}
-                    <td className="px-6 py-4">
-                      <div className="text-sm font-semibold text-slate-700">{formatDateTimeTH(task.created_at)}</div>
-                    </td>
-
-                    {/* ✅ Updated at */}
-                    <td className="px-6 py-4">
-                      <div className="text-sm font-semibold text-slate-700">{formatDateTimeTH(task.updated_at)}</div>
-                    </td>
-
-                    {/* Status */}
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold border ${getStatusStyle(
-                            task.status
-                          )}`}
-                        >
-                          {getStatusText(task.status)}
-                        </span>
-
-                        {task.pending_request_id && (
-                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-semibold border bg-amber-50 text-amber-700 border-amber-100">
-                            รออนุมัติ
-                          </span>
-                        )}
-                      </div>
-                    </td>
-
-                    {/* Actions */}
-                    <td className="px-6 py-4 text-right">
-                      <select
-                        value={task.status}
-                        onClick={(e) => e.stopPropagation()}
-                        onChange={(e) => updateTaskStatus(task.task_id, e.target.value)}
-                        disabled={
-                          LOCK_STATUSES.has(task.status) ||
-                          !!task.pending_request_id ||
-                          !user ||
-                          Number(task.assigned_to) !== Number(user.user_id)
-                        }
-                        className={`bg-white border border-slate-200 rounded-lg px-2 py-1 text-[11px] font-medium text-slate-500 outline-none transition-all ${
-                          LOCK_STATUSES.has(task.status) ||
-                          !!task.pending_request_id ||
-                          !user ||
-                          Number(task.assigned_to) !== Number(user.user_id)
-                            ? 'opacity-60 cursor-not-allowed'
-                            : 'hover:border-blue-300 cursor-pointer'
-                        }`}
-                      >
-                        <option value="pending">รอดำเนินการ</option>
-                        <option value="in_progress">กำลังทำ</option>
-                        <option value="completed">เสร็จสิ้น (ขออนุมัติ)</option>
-                        <option value="postponed">ขอเลื่อน (ขออนุมัติ)</option>
-                        <option value="cancelled">ยกเลิก (ขออนุมัติ)</option>
-                      </select>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       {noteOpen && (
@@ -673,20 +745,24 @@ export default function TasksPage() {
       )}
 
       {showAddModal && (
-        <AddTaskModal user={user} customers={customers} users={users} onClose={() => setShowAddModal(false)} onSuccess={fetchData} />
+        <AddTaskModal
+          user={user}
+          customers={customers}
+          users={users}
+          onClose={() => setShowAddModal(false)}
+          onSuccess={fetchData}
+        />
       )}
     </div>
   );
 }
 
-// --- Modal: Note / Reason ---
 function NoteModal({ title, required, value, onChange, submitting, onClose, onSubmit }: any) {
-  const canSubmit = !submitting && (!required || (required && String(value || '').trim().length > 0));
+  const canSubmit = !submitting && (!required || String(value || '').trim().length > 0);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
       <div className="absolute inset-0 bg-slate-900/40" onClick={submitting ? undefined : onClose} />
-
       <div className="relative w-full max-w-xl bg-white rounded-[1.5rem] border border-slate-100 shadow-xl overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50">
           <div>
@@ -698,7 +774,6 @@ function NoteModal({ title, required, value, onChange, submitting, onClose, onSu
           <button
             onClick={submitting ? undefined : onClose}
             className="p-2 rounded-xl hover:bg-white border border-transparent hover:border-slate-200 text-slate-500 transition"
-            aria-label="close"
           >
             <Icons.Close />
           </button>
@@ -714,9 +789,7 @@ function NoteModal({ title, required, value, onChange, submitting, onClose, onSu
             placeholder={required ? 'กรุณาระบุเหตุผล...' : 'พิมพ์หมายเหตุเพิ่มเติม (ถ้ามี)...'}
             disabled={submitting}
           />
-          {required && !String(value || '').trim() && (
-            <p className="mt-2 text-xs text-rose-600">* จำเป็นต้องระบุเหตุผล</p>
-          )}
+          {required && !String(value || '').trim() && <p className="mt-2 text-xs text-rose-600">* จำเป็นต้องระบุเหตุผล</p>}
         </div>
 
         <div className="px-6 py-4 border-t border-slate-100 bg-white flex items-center justify-end gap-2">
@@ -731,7 +804,7 @@ function NoteModal({ title, required, value, onChange, submitting, onClose, onSu
             type="button"
             onClick={canSubmit ? onSubmit : undefined}
             disabled={!canSubmit}
-            className="px-5 py-2 rounded-xl text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition shadow-md shadow-blue-100"
+            className="px-5 py-2 rounded-xl text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition"
           >
             {submitting ? 'กำลังส่ง...' : 'ยืนยัน'}
           </button>
@@ -741,7 +814,6 @@ function NoteModal({ title, required, value, onChange, submitting, onClose, onSu
   );
 }
 
-// --- Modal: Approve / Reject (Status Request) ---
 function ApprovalModal({ task, decisionNote, setDecisionNote, submitting, onClose, onApprove, onReject }: any) {
   const requestedStatusText =
     task.pending_requested_status === 'completed'
@@ -768,7 +840,6 @@ function ApprovalModal({ task, decisionNote, setDecisionNote, submitting, onClos
           <button
             onClick={submitting ? undefined : onClose}
             className="p-2 rounded-xl hover:bg-white border border-transparent hover:border-slate-200 text-slate-500 transition"
-            aria-label="close"
           >
             <Icons.Close />
           </button>
@@ -828,7 +899,7 @@ function ApprovalModal({ task, decisionNote, setDecisionNote, submitting, onClos
             type="button"
             onClick={onApprove}
             disabled={submitting}
-            className="px-5 py-2 rounded-xl text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed transition shadow-md shadow-emerald-100"
+            className="px-5 py-2 rounded-xl text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed transition"
           >
             อนุมัติ
           </button>
@@ -838,37 +909,36 @@ function ApprovalModal({ task, decisionNote, setDecisionNote, submitting, onClos
   );
 }
 
-/**
- * ----------------------------
- * AddTaskModal (ของเดิมคุณ)
- * ----------------------------
- * หมายเหตุ: ส่วนนี้ผม “คงโครง UI/ฟีเจอร์ของคุณไว้” (มีปุ่มสร้างโปรเจคใหม่, และ project dropdown เลือกได้เฉพาะลูกค้าที่เลือก)
- */
 function AddTaskModal({ user, customers, users, onClose, onSuccess }: any) {
   const [formData, setFormData] = useState<any>({
     customer_id: '',
     project_id: '',
-    assigned_to: users?.[0]?.user_id ? String(users[0].user_id) : '',
-    task_date: new Date().toISOString().slice(0, 10),
-    title: '',
-    description: ''
   });
+
+  const [taskItems, setTaskItems] = useState<any[]>([
+    {
+      id: Date.now(),
+      title: '',
+      description: '',
+      task_date: new Date().toISOString().slice(0, 10),
+      assigned_to: users?.[0]?.user_id ? String(users[0].user_id) : '',
+      assignees: users?.[0]?.user_id ? [String(users[0].user_id)] : [],
+    },
+  ]);
 
   const [submitting, setSubmitting] = useState(false);
 
-  // --- Projects loading by customer ---
   const [projects, setProjects] = useState<any[]>([]);
   const [projectsLoading, setProjectsLoading] = useState(false);
 
-  // --- Create Project modal inside AddTaskModal ---
   const [showCreateProject, setShowCreateProject] = useState(false);
   const [creatingProject, setCreatingProject] = useState(false);
+  const [projectError, setProjectError] = useState('');
   const [projectForm, setProjectForm] = useState<any>({
     project_name: '',
     project_type: '',
-    description: ''
+    description: '',
   });
-  const [projectError, setProjectError] = useState<string>('');
 
   useEffect(() => {
     const loadProjects = async () => {
@@ -892,8 +962,60 @@ function AddTaskModal({ user, customers, users, onClose, onSuccess }: any) {
     };
 
     loadProjects();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.customer_id]);
+
+  const updateTaskItem = (id: number, field: string, value: any) => {
+    setTaskItems((prev: any[]) =>
+      prev.map((item) => {
+        if (item.id !== id) return item;
+
+        if (field === 'assignees') {
+          const nextAssignees = Array.isArray(value) ? value : [];
+          return {
+            ...item,
+            assignees: nextAssignees,
+            assigned_to: nextAssignees[0] || '',
+          };
+        }
+
+        if (field === 'assigned_to') {
+          const currentAssignees = Array.isArray(item.assignees) ? item.assignees : [];
+          const merged = value
+            ? Array.from(new Set([String(value), ...currentAssignees.map((x: any) => String(x))]))
+            : currentAssignees;
+          return {
+            ...item,
+            assigned_to: value,
+            assignees: merged,
+          };
+        }
+
+        return {
+          ...item,
+          [field]: value,
+        };
+      })
+    );
+  };
+
+  const addTaskRow = () => {
+    setTaskItems((prev: any[]) => [
+      ...prev,
+      {
+        id: Date.now() + Math.floor(Math.random() * 1000),
+        title: '',
+        description: '',
+        task_date: new Date().toISOString().slice(0, 10),
+        assigned_to: users?.[0]?.user_id ? String(users[0].user_id) : '',
+        assignees: users?.[0]?.user_id ? [String(users[0].user_id)] : [],
+      },
+    ]);
+  };
+
+  const removeTaskRow = (id: number) => {
+    if (taskItems.length <= 1) return;
+    setTaskItems((prev: any[]) => prev.filter((item) => item.id !== id));
+  };
 
   const createProject = async () => {
     if (!formData.customer_id) return;
@@ -911,13 +1033,13 @@ function AddTaskModal({ user, customers, users, onClose, onSuccess }: any) {
         project_name: projectForm.project_name.trim(),
         project_type: projectForm.project_type?.trim() || null,
         description: projectForm.description?.trim() || null,
-        department: user?.department || null
+        department: user?.department || null,
       };
 
       const res = await fetch('/api/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
@@ -928,12 +1050,10 @@ function AddTaskModal({ user, customers, users, onClose, onSuccess }: any) {
         return;
       }
 
-      // refresh projects list
       const listRes = await fetch(`/api/projects?customer_id=${formData.customer_id}`);
       const listData = await listRes.json();
       setProjects(listData.projects || []);
 
-      // auto-select created project
       const createdId = data?.project?.project_id;
       if (createdId) {
         setFormData((prev: any) => ({ ...prev, project_id: String(createdId) }));
@@ -949,35 +1069,46 @@ function AddTaskModal({ user, customers, users, onClose, onSuccess }: any) {
     }
   };
 
-  const createTask = async (e: any) => {
+  const createTasks = async (e: any) => {
     e.preventDefault();
-    if (!formData.title.trim()) return;
+
+    if (!taskItems.some((item) => item.title.trim())) {
+      alert('กรุณาระบุหัวข้องานอย่างน้อย 1 งาน');
+      return;
+    }
 
     try {
       setSubmitting(true);
 
-      const payload: any = {
-        ...formData,
-        customer_id: formData.customer_id ? Number(formData.customer_id) : null,
-        project_id: formData.project_id ? Number(formData.project_id) : null,
-        assigned_to: Number(formData.assigned_to)
-      };
+      for (const item of taskItems) {
+        if (!item.title.trim()) continue;
 
-      const res = await fetch('/api/tasks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+        const payload: any = {
+          customer_id: formData.customer_id ? Number(formData.customer_id) : null,
+          project_id: formData.project_id ? Number(formData.project_id) : null,
+          title: item.title.trim(),
+          description: item.description?.trim() || null,
+          task_date: item.task_date || null,
+          assigned_to: item.assigned_to ? Number(item.assigned_to) : null,
+          assignees: Array.isArray(item.assignees) ? item.assignees.map((x: any) => Number(x)) : [],
+        };
 
-      if (res.ok) {
-        await onSuccess();
-        onClose();
-        return;
+        const res = await fetch('/api/tasks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) {
+          console.error(await res.text());
+          alert(`สร้างงานไม่สำเร็จ: ${item.title}`);
+          setSubmitting(false);
+          return;
+        }
       }
 
-      console.error('Create task failed:', await res.text());
-      alert('สร้างงานไม่สำเร็จ');
-      setSubmitting(false);
+      await onSuccess();
+      onClose();
     } catch (err) {
       console.error(err);
       alert('สร้างงานไม่สำเร็จ');
@@ -989,135 +1120,186 @@ function AddTaskModal({ user, customers, users, onClose, onSuccess }: any) {
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
       <div className="absolute inset-0 bg-slate-900/40" onClick={submitting ? undefined : onClose} />
 
-      <div className="relative w-full max-w-3xl bg-white rounded-[1.75rem] border border-slate-100 shadow-xl overflow-hidden">
-        {/* Header */}
+      <div className="relative w-full max-w-6xl bg-white rounded-[1.75rem] border border-slate-100 shadow-xl overflow-hidden max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50">
           <div>
             <h2 className="text-base font-bold text-slate-800">เพิ่มงานใหม่</h2>
-            <p className="text-xs text-slate-500 mt-0.5">สร้างงานและกำหนดผู้รับผิดชอบ</p>
+            <p className="text-xs text-slate-500 mt-0.5">สร้างหลาย task ในครั้งเดียว พร้อมกำหนดผู้รับผิดชอบหลายคน</p>
           </div>
           <button
             onClick={submitting ? undefined : onClose}
             className="p-2 rounded-xl hover:bg-white border border-transparent hover:border-slate-200 text-slate-500 transition"
           >
             <Icons.Close />
-          </button>
+          </button>x
         </div>
 
-        {/* Body */}
-        <form onSubmit={createTask} className="px-6 py-6 space-y-5">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Customer */}
-            <div>
-              <label className="text-xs font-semibold text-slate-600">ลูกค้า (ไม่บังคับ)</label>
-              <select
-                value={formData.customer_id}
-                onChange={(e) => setFormData((prev: any) => ({ ...prev, customer_id: e.target.value }))}
-                className="mt-2 w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-100 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">ไม่ระบุลูกค้า</option>
-                {customers.map((c: any) => (
-                  <option key={c.customer_id} value={c.customer_id}>
-                    {c.company_name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Project */}
-            <div>
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold text-slate-600">โปรเจค (ไม่บังคับ)</label>
-                <button
-                  type="button"
-                  disabled={!formData.customer_id}
-                  onClick={() => setShowCreateProject(true)}
-                  className={`text-xs font-semibold px-3 py-1.5 rounded-xl border transition ${
-                    formData.customer_id
-                      ? 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                      : 'bg-slate-100 border-slate-100 text-slate-400 cursor-not-allowed'
-                  }`}
+        <form onSubmit={createTasks} className="flex-1 overflow-auto">
+          <div className="px-6 py-6 space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-semibold text-slate-600">ลูกค้า</label>
+                <select
+                  value={formData.customer_id}
+                  onChange={(e) => setFormData((prev: any) => ({ ...prev, customer_id: e.target.value }))}
+                  className="mt-2 w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-100 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  + สร้างโปรเจคใหม่
-                </button>
+                  <option value="">ไม่ระบุลูกค้า</option>
+                  {customers.map((c: any) => (
+                    <option key={c.customer_id} value={c.customer_id}>
+                      {c.company_name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
-              <select
-                value={formData.project_id}
-                onChange={(e) => setFormData((prev: any) => ({ ...prev, project_id: e.target.value }))}
-                disabled={!formData.customer_id}
-                className={`mt-2 w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-100 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  !formData.customer_id ? 'opacity-60 cursor-not-allowed' : ''
-                }`}
-              >
-                <option value="">
-                  {!formData.customer_id ? 'โปรดเลือกลูกค้าก่อน' : projectsLoading ? 'กำลังโหลดโปรเจค...' : 'ไม่ระบุโปรเจค'}
-                </option>
-                {projects.map((p: any) => (
-                  <option key={p.project_id} value={p.project_id}>
-                    {p.project_name}
+              <div>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-slate-600">โปรเจค</label>
+                  <button
+                    type="button"
+                    disabled={!formData.customer_id}
+                    onClick={() => setShowCreateProject(true)}
+                    className={`text-xs font-semibold px-3 py-1.5 rounded-xl border transition ${
+                      formData.customer_id
+                        ? 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                        : 'bg-slate-100 border-slate-100 text-slate-400 cursor-not-allowed'
+                    }`}
+                  >
+                    + สร้างโปรเจคใหม่
+                  </button>
+                </div>
+
+                <select
+                  value={formData.project_id}
+                  onChange={(e) => setFormData((prev: any) => ({ ...prev, project_id: e.target.value }))}
+                  disabled={!formData.customer_id}
+                  className={`mt-2 w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-100 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    !formData.customer_id ? 'opacity-60 cursor-not-allowed' : ''
+                  }`}
+                >
+                  <option value="">
+                    {!formData.customer_id ? 'โปรดเลือกลูกค้าก่อน' : projectsLoading ? 'กำลังโหลดโปรเจค...' : 'ไม่ระบุโปรเจค'}
                   </option>
-                ))}
-              </select>
-              {formData.customer_id && !projectsLoading && projects.length === 0 && (
-                <p className="mt-2 text-xs text-slate-400">ลูกค้ารายนี้ยังไม่มีโปรเจค</p>
-              )}
+                  {projects.map((p: any) => (
+                    <option key={p.project_id} value={p.project_id}>
+                      {p.project_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
-            {/* Assigned to */}
-            <div>
-              <label className="text-xs font-semibold text-slate-600">ผู้รับผิดชอบ</label>
-              <select
-                value={formData.assigned_to}
-                onChange={(e) => setFormData((prev: any) => ({ ...prev, assigned_to: e.target.value }))}
-                className="mt-2 w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-100 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-slate-800">รายการ Task</h3>
+                <p className="text-xs text-slate-500">เพิ่มหลายงานเพื่อใช้เป็น milestone ของโปรเจคได้</p>
+              </div>
+              <button
+                type="button"
+                onClick={addTaskRow}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 transition"
               >
-                {users.map((u: any) => (
-                  <option key={u.user_id} value={u.user_id}>
-                    {u.full_name}
-                  </option>
-                ))}
-              </select>
+                <Icons.Plus />
+                เพิ่ม Task
+              </button>
             </div>
 
-            {/* Task date */}
-            <div>
-              <label className="text-xs font-semibold text-slate-600">กำหนดส่ง</label>
-              <input
-                type="date"
-                value={formData.task_date}
-                onChange={(e) => setFormData((prev: any) => ({ ...prev, task_date: e.target.value }))}
-                className="mt-2 w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-100 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+            <div className="space-y-4">
+              {taskItems.map((item: any, index: number) => (
+                <div key={item.id} className="rounded-[1.5rem] border border-slate-100 bg-slate-50/60 p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-bold text-slate-800">Task {index + 1}</div>
+                    {taskItems.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeTaskRow(item.id)}
+                        className="px-3 py-1.5 rounded-xl text-xs font-semibold border border-rose-200 text-rose-600 hover:bg-rose-50 transition"
+                      >
+                        ลบ
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="md:col-span-2">
+                      <label className="text-xs font-semibold text-slate-600">หัวข้องาน</label>
+                      <input
+                        value={item.title}
+                        onChange={(e) => updateTaskItem(item.id, 'title', e.target.value)}
+                        className="mt-2 w-full px-4 py-3 rounded-2xl bg-white border border-slate-100 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="เช่น ส่งใบเสนอราคา / นัดประชุม / จัดเตรียมเอกสาร"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-semibold text-slate-600">ผู้รับผิดชอบหลัก</label>
+                      <select
+                        value={item.assigned_to}
+                        onChange={(e) => updateTaskItem(item.id, 'assigned_to', e.target.value)}
+                        className="mt-2 w-full px-4 py-3 rounded-2xl bg-white border border-slate-100 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">เลือกผู้รับผิดชอบหลัก</option>
+                        {users.map((u: any) => (
+                          <option key={u.user_id} value={u.user_id}>
+                            {u.full_name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-semibold text-slate-600">กำหนดส่ง</label>
+                      <input
+                        type="date"
+                        value={item.task_date}
+                        onChange={(e) => updateTaskItem(item.id, 'task_date', e.target.value)}
+                        className="mt-2 w-full px-4 py-3 rounded-2xl bg-white border border-slate-100 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <label className="text-xs font-semibold text-slate-600">ผู้ช่วย / ผู้รับผิดชอบร่วม</label>
+                      <select
+                        multiple
+                        value={item.assignees}
+                        onChange={(e) =>
+                          updateTaskItem(
+                            item.id,
+                            'assignees',
+                            Array.from(e.target.selectedOptions).map((o) => o.value)
+                          )
+                        }
+                        className="mt-2 w-full min-h-[140px] px-4 py-3 rounded-2xl bg-white border border-slate-100 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        {users.map((u: any) => (
+                          <option key={u.user_id} value={u.user_id}>
+                            {u.full_name}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="mt-2 text-xs text-slate-400">
+                        กด Ctrl/Command ค้างไว้เพื่อเลือกหลายคน
+                      </p>
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <label className="text-xs font-semibold text-slate-600">รายละเอียด</label>
+                      <textarea
+                        value={item.description}
+                        onChange={(e) => updateTaskItem(item.id, 'description', e.target.value)}
+                        rows={3}
+                        className="mt-2 w-full px-4 py-3 rounded-2xl bg-white border border-slate-100 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="รายละเอียดเพิ่มเติม (ถ้ามี)"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 
-          {/* Title */}
-          <div>
-            <label className="text-xs font-semibold text-slate-600">หัวข้องาน</label>
-            <input
-              value={formData.title}
-              onChange={(e) => setFormData((prev: any) => ({ ...prev, title: e.target.value }))}
-              required
-              className="mt-2 w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-100 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="เช่น ติดต่อลูกค้า / ส่งใบเสนอราคา / นัดประชุม"
-            />
-          </div>
-
-          {/* Description */}
-          <div>
-            <label className="text-xs font-semibold text-slate-600">รายละเอียด</label>
-            <textarea
-              value={formData.description}
-              onChange={(e) => setFormData((prev: any) => ({ ...prev, description: e.target.value }))}
-              rows={4}
-              className="mt-2 w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-100 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="อธิบายรายละเอียดเพิ่มเติม (ถ้ามี)"
-            />
-          </div>
-
-          {/* Footer actions */}
-          <div className="flex items-center justify-end gap-2 pt-2">
+          <div className="px-6 py-4 border-t border-slate-100 bg-white flex items-center justify-end gap-2 sticky bottom-0">
             <button
               type="button"
               onClick={onClose}
@@ -1128,14 +1310,13 @@ function AddTaskModal({ user, customers, users, onClose, onSuccess }: any) {
             <button
               type="submit"
               disabled={submitting}
-              className="px-5 py-2 rounded-xl text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition shadow-md shadow-blue-100"
+              className="px-5 py-2 rounded-xl text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition"
             >
-              {submitting ? 'กำลังสร้าง...' : 'สร้างงาน'}
+              {submitting ? 'กำลังสร้าง...' : 'บันทึกทั้งหมด'}
             </button>
           </div>
         </form>
 
-        {/* Create Project modal inside AddTaskModal */}
         {showCreateProject && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center px-4">
             <div className="absolute inset-0 bg-slate-900/40" onClick={() => setShowCreateProject(false)} />
@@ -1156,9 +1337,7 @@ function AddTaskModal({ user, customers, users, onClose, onSuccess }: any) {
 
               <div className="px-6 py-5 space-y-4">
                 {projectError && (
-                  <div className="p-3 rounded-xl bg-rose-50 border border-rose-100 text-rose-700 text-sm">
-                    {projectError}
-                  </div>
+                  <div className="p-3 rounded-xl bg-rose-50 border border-rose-100 text-rose-700 text-sm">{projectError}</div>
                 )}
 
                 <div>
@@ -1167,7 +1346,7 @@ function AddTaskModal({ user, customers, users, onClose, onSuccess }: any) {
                     value={projectForm.project_name}
                     onChange={(e) => setProjectForm((p: any) => ({ ...p, project_name: e.target.value }))}
                     className="mt-2 w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-100 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="เช่น เช่ารถกองพิธี / Call Center / บริหาร Mail Room"
+                    placeholder="เช่น OCR Implementation / Mail Room Setup"
                   />
                 </div>
 
@@ -1177,7 +1356,7 @@ function AddTaskModal({ user, customers, users, onClose, onSuccess }: any) {
                     value={projectForm.project_type}
                     onChange={(e) => setProjectForm((p: any) => ({ ...p, project_type: e.target.value }))}
                     className="mt-2 w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-100 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="เช่น Bidding / จัดซื้อจัดจ้างพิเศษ / เสนอราคาปกติ"
+                    placeholder="เช่น New Project / Renewal / Presale"
                   />
                 </div>
 
@@ -1188,7 +1367,7 @@ function AddTaskModal({ user, customers, users, onClose, onSuccess }: any) {
                     onChange={(e) => setProjectForm((p: any) => ({ ...p, description: e.target.value }))}
                     rows={3}
                     className="mt-2 w-full px-4 py-3 rounded-2xl bg-slate-50 border border-slate-100 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="รายละเอียดโปรเจค (ถ้ามี)"
+                    placeholder="รายละเอียดโปรเจค"
                   />
                 </div>
               </div>
@@ -1205,7 +1384,7 @@ function AddTaskModal({ user, customers, users, onClose, onSuccess }: any) {
                   type="button"
                   onClick={createProject}
                   disabled={creatingProject || !projectForm.project_name.trim()}
-                  className="px-5 py-2 rounded-xl text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition shadow-md shadow-blue-100"
+                  className="px-5 py-2 rounded-xl text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition"
                 >
                   {creatingProject ? 'กำลังสร้าง...' : 'สร้างโปรเจค'}
                 </button>

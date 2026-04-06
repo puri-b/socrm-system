@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
-import { getUserFromRequest, canAccessDepartment, canManageUsers, getAccessibleDepartments } from '@/lib/auth';
+import { getUserFromRequest, canAccessDepartment, getAccessibleDepartments } from '@/lib/auth';
 
 type EntityType = 'customer' | 'project' | 'task';
 
@@ -30,9 +30,6 @@ async function logActivity(params: {
   }
 }
 
-/**
- * รองรับทั้ง "done" และ "completed" เพื่อไม่กระทบข้อมูล/โค้ดเดิม
- */
 const ALLOWED_STATUSES = new Set([
   'pending',
   'in_progress',
@@ -42,15 +39,14 @@ const ALLOWED_STATUSES = new Set([
   'postponed',
 ]);
 
-/**
- * สถานะที่ต้องขออนุมัติ
- */
-const RESTRICTED_STATUSES = new Set(['done', 'completed', 'cancelled', 'postponed']); // ต้องขออนุมัติ
+const RESTRICTED_STATUSES = new Set(['done', 'completed', 'cancelled', 'postponed']);
 
 export async function GET(request: NextRequest) {
   try {
     const user = getUserFromRequest(request);
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
@@ -59,21 +55,33 @@ export async function GET(request: NextRequest) {
     const projectId = searchParams.get('project_id');
 
     let queryText = `
-      SELECT t.*,
-             c.company_name,
-             u1.full_name as assigned_to_name,
-             u2.full_name as created_by_name,
-             u3.full_name as assigned_by_name,
-             p.project_name,
-             p.project_type,
+      SELECT
+        t.*,
+        c.company_name,
+        u1.full_name as assigned_to_name,
+        u2.full_name as created_by_name,
+        u3.full_name as assigned_by_name,
+        p.project_name,
+        p.project_type,
 
-             -- latest pending request
-             r.request_id as pending_request_id,
-             r.requested_status as pending_requested_status,
-             r.note as pending_note,
-             r.requested_by as pending_requested_by,
-             u4.full_name as pending_requested_by_name,
-             r.created_at as pending_requested_at
+        -- latest pending request
+        r.request_id as pending_request_id,
+        r.requested_status as pending_requested_status,
+        r.note as pending_note,
+        r.requested_by as pending_requested_by,
+        u4.full_name as pending_requested_by_name,
+        r.created_at as pending_requested_at,
+
+        -- multi assignees
+        COALESCE(
+          JSON_AGG(
+            DISTINCT JSONB_BUILD_OBJECT(
+              'user_id', u5.user_id,
+              'name', u5.full_name
+            )
+          ) FILTER (WHERE u5.user_id IS NOT NULL),
+          '[]'
+        ) AS assignees
 
       FROM x_socrm.tasks t
       LEFT JOIN x_socrm.customers c ON t.customer_id = c.customer_id
@@ -91,25 +99,49 @@ export async function GET(request: NextRequest) {
       ) r ON true
       LEFT JOIN x_socrm.users u4 ON r.requested_by = u4.user_id
 
+      LEFT JOIN x_socrm.task_assignees ta ON ta.task_id = t.task_id
+      LEFT JOIN x_socrm.users u5 ON ta.user_id = u5.user_id
+
       WHERE 1=1
     `;
 
     const params: any[] = [];
     let paramCount = 1;
 
-    // visibility (รองรับ digital_marketing):
-    // - admin: เห็นทั้งหมด
-    // - non-admin: เห็นงานของแผนกที่เข้าถึงได้ + งานที่ assigned_to/created_by เป็นตัวเอง
     const accessibleDepts = getAccessibleDepartments(user);
+
     if (accessibleDepts !== null) {
       if (accessibleDepts.length === 0) {
-        queryText += ` AND (t.assigned_to = $${paramCount} OR t.created_by = $${paramCount + 1})`;
-        params.push(user.user_id, user.user_id);
-        paramCount += 2;
-      } else {
-        queryText += ` AND (t.department = ANY($${paramCount}::text[]) OR t.assigned_to = $${paramCount + 1} OR t.created_by = $${paramCount + 2})`;
-        params.push(accessibleDepts, user.user_id, user.user_id);
+        queryText += `
+          AND (
+            t.assigned_to = $${paramCount}
+            OR t.created_by = $${paramCount + 1}
+            OR EXISTS (
+              SELECT 1
+              FROM x_socrm.task_assignees ta_self
+              WHERE ta_self.task_id = t.task_id
+                AND ta_self.user_id = $${paramCount + 2}
+            )
+          )
+        `;
+        params.push(user.user_id, user.user_id, user.user_id);
         paramCount += 3;
+      } else {
+        queryText += `
+          AND (
+            t.department = ANY($${paramCount}::text[])
+            OR t.assigned_to = $${paramCount + 1}
+            OR t.created_by = $${paramCount + 2}
+            OR EXISTS (
+              SELECT 1
+              FROM x_socrm.task_assignees ta_self
+              WHERE ta_self.task_id = t.task_id
+                AND ta_self.user_id = $${paramCount + 3}
+            )
+          )
+        `;
+        params.push(accessibleDepts, user.user_id, user.user_id, user.user_id);
+        paramCount += 4;
       }
     }
 
@@ -118,23 +150,52 @@ export async function GET(request: NextRequest) {
       params.push(status);
       paramCount++;
     }
+
     if (assignedTo) {
-      queryText += ` AND t.assigned_to = $${paramCount}`;
+      queryText += `
+        AND (
+          t.assigned_to = $${paramCount}
+          OR EXISTS (
+            SELECT 1
+            FROM x_socrm.task_assignees ta_filter
+            WHERE ta_filter.task_id = t.task_id
+              AND ta_filter.user_id = $${paramCount}
+          )
+        )
+      `;
       params.push(Number(assignedTo));
       paramCount++;
     }
+
     if (customerId) {
       queryText += ` AND t.customer_id = $${paramCount}`;
       params.push(Number(customerId));
       paramCount++;
     }
+
     if (projectId) {
       queryText += ` AND t.project_id = $${paramCount}`;
       params.push(Number(projectId));
       paramCount++;
     }
 
-    queryText += ' ORDER BY t.task_date DESC, t.created_at DESC';
+    queryText += `
+      GROUP BY
+        t.task_id,
+        c.company_name,
+        u1.full_name,
+        u2.full_name,
+        u3.full_name,
+        p.project_name,
+        p.project_type,
+        r.request_id,
+        r.requested_status,
+        r.note,
+        r.requested_by,
+        u4.full_name,
+        r.created_at
+      ORDER BY t.task_date DESC NULLS LAST, t.created_at DESC
+    `;
 
     const result = await query(queryText, params);
     return NextResponse.json({ tasks: result.rows });
@@ -147,7 +208,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const user = getUserFromRequest(request);
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
     const data = await request.json();
     const {
@@ -159,28 +222,45 @@ export async function POST(request: NextRequest) {
       department,
       assigned_to,
       project_id,
+      assignees = [],
     } = data;
 
     if (!customer_id || !title) {
       return NextResponse.json({ error: 'customer_id และ title จำเป็นต้องระบุ' }, { status: 400 });
     }
 
-    // Determine customer department to authorize
     const custRes = await query(
-      `SELECT customer_id, department, company_name FROM x_socrm.customers WHERE customer_id = $1`,
+      `SELECT customer_id, department, company_name
+       FROM x_socrm.customers
+       WHERE customer_id = $1`,
       [Number(customer_id)]
     );
-    if (custRes.rows.length === 0) return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
+
+    if (custRes.rows.length === 0) {
+      return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
+    }
 
     const customerDept = String(custRes.rows[0].department);
-    if (!canAccessDepartment(user, customerDept)) return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+
+    if (!canAccessDepartment(user, customerDept)) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
 
     const deptToSave = String(department || customerDept || user.department);
     const assignedTo = assigned_to ? Number(assigned_to) : user.user_id;
 
     const result = await query(
       `INSERT INTO x_socrm.tasks (
-        customer_id, assigned_to, created_by, title, description, task_date, status, department, project_id, assigned_by
+        customer_id,
+        assigned_to,
+        created_by,
+        title,
+        description,
+        task_date,
+        status,
+        department,
+        project_id,
+        assigned_by
       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
       RETURNING *`,
       [
@@ -199,13 +279,37 @@ export async function POST(request: NextRequest) {
 
     const task = result.rows[0];
 
+    const allAssignees = new Set<number>();
+    allAssignees.add(assignedTo);
+
+    if (Array.isArray(assignees)) {
+      for (const uid of assignees) {
+        if (uid) allAssignees.add(Number(uid));
+      }
+    }
+
+    for (const uid of allAssignees) {
+      await query(
+        `
+        INSERT INTO x_socrm.task_assignees (task_id, user_id)
+        VALUES ($1, $2)
+        ON CONFLICT DO NOTHING
+        `,
+        [task.task_id, uid]
+      );
+    }
+
     await logActivity({
       entity_type: 'task',
       entity_id: task.task_id,
       action: 'create',
       performed_by: user.user_id,
       message: `สร้างงาน: ${task.title}`,
-      meta: { customer_id, project_id: project_id ?? null },
+      meta: {
+        customer_id: Number(customer_id),
+        project_id: project_id ? Number(project_id) : null,
+        assignees: Array.from(allAssignees),
+      },
     });
 
     return NextResponse.json({ success: true, task });
@@ -218,7 +322,9 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const user = getUserFromRequest(request);
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
     const data = await request.json();
     const { task_id, status, note } = data;
@@ -232,7 +338,6 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
     }
 
-    // Load task
     const taskRes = await query(
       `
       SELECT t.*
@@ -248,17 +353,32 @@ export async function PATCH(request: NextRequest) {
 
     const task = taskRes.rows[0];
 
-    // visibility (match GET) รองรับ digital_marketing
     if (user.role !== 'admin') {
       const accessibleDepts = getAccessibleDepartments(user) || [];
+
+      const assigneeCheckRes = await query(
+        `
+        SELECT 1
+        FROM x_socrm.task_assignees
+        WHERE task_id = $1 AND user_id = $2
+        LIMIT 1
+        `,
+        [Number(task_id), Number(user.user_id)]
+      );
+
+      const isTaskAssignee = assigneeCheckRes.rows.length > 0;
+
       const ok =
         accessibleDepts.includes(String(task.department)) ||
         Number(task.assigned_to) === Number(user.user_id) ||
-        Number(task.created_by) === Number(user.user_id);
-      if (!ok) return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+        Number(task.created_by) === Number(user.user_id) ||
+        isTaskAssignee;
+
+      if (!ok) {
+        return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      }
     }
 
-    // ✅ ถ้าสถานะต้อง approval: สร้าง request ส่งให้ "ผู้สร้างงาน" เท่านั้น
     if (RESTRICTED_STATUSES.has(newStatus)) {
       if (newStatus === 'postponed' && (!note || String(note).trim().length === 0)) {
         return NextResponse.json({ error: 'สถานะ "ขอเลื่อน" ต้องระบุหมายเหตุ (note)' }, { status: 400 });
@@ -266,7 +386,7 @@ export async function PATCH(request: NextRequest) {
 
       const pendingRes = await query(
         `
-        SELECT request_id, requested_status, note, requested_by, created_at
+        SELECT request_id
         FROM x_socrm.task_status_requests
         WHERE task_id = $1 AND decision = 'pending'
         ORDER BY created_at DESC
@@ -281,14 +401,15 @@ export async function PATCH(request: NextRequest) {
 
       const requiredApproverIds = [Number(task.created_by)];
 
-      /**
-       * ✅ แก้ 500 array_in:
-       * - ถ้าคอลัมน์ required_approver_ids เป็น int[] ให้ส่งเป็น array จริง
-       * - ใส่ cast ::int[] เพื่อชัดเจน
-       */
       const reqRes = await query(
         `
-        INSERT INTO x_socrm.task_status_requests (task_id, requested_status, note, requested_by, required_approver_ids)
+        INSERT INTO x_socrm.task_status_requests (
+          task_id,
+          requested_status,
+          note,
+          requested_by,
+          required_approver_ids
+        )
         VALUES ($1, $2, $3, $4, $5::int[])
         RETURNING *
         `,
@@ -301,17 +422,25 @@ export async function PATCH(request: NextRequest) {
         action: 'request_status_change',
         performed_by: user.user_id,
         message: `ขอเปลี่ยนสถานะงานเป็น: ${newStatus}`,
-        meta: { note: note || null, required_approver_ids: requiredApproverIds },
+        meta: {
+          note: note || null,
+          required_approver_ids: requiredApproverIds,
+        },
       });
 
-      return NextResponse.json({ success: true, request: reqRes.rows[0], requires_approval: true });
+      return NextResponse.json({
+        success: true,
+        request: reqRes.rows[0],
+        requires_approval: true,
+      });
     }
 
-    // ✅ สถานะทั่วไป (ไม่ต้อง approval)
     const upd = await query(
       `
       UPDATE x_socrm.tasks
-      SET status = $1, status_note = $2, updated_at = CURRENT_TIMESTAMP
+      SET status = $1,
+          status_note = $2,
+          updated_at = CURRENT_TIMESTAMP
       WHERE task_id = $3
       RETURNING *
       `,
@@ -327,7 +456,11 @@ export async function PATCH(request: NextRequest) {
       meta: { note: note || null },
     });
 
-    return NextResponse.json({ success: true, task: upd.rows[0], requires_approval: false });
+    return NextResponse.json({
+      success: true,
+      task: upd.rows[0],
+      requires_approval: false,
+    });
   } catch (error) {
     console.error('Update task status error:', error);
     return NextResponse.json({ error: 'เกิดข้อผิดพลาด' }, { status: 500 });
