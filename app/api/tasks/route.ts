@@ -280,25 +280,30 @@ export async function POST(request: NextRequest) {
     const task = result.rows[0];
 
     const allAssignees = new Set<number>();
-    allAssignees.add(assignedTo);
 
-    if (Array.isArray(assignees)) {
-      const assigneeList = Array.from(allAssignees);
-    for (const uid of assigneeList) {
-        if (uid) allAssignees.add(Number(uid));
-      }
-    }
+// primary
+allAssignees.add(assignedTo);
 
-    for (const uid of allAssignees) {
-      await query(
-        `
-        INSERT INTO x_socrm.task_assignees (task_id, user_id)
-        VALUES ($1, $2)
-        ON CONFLICT DO NOTHING
-        `,
-        [task.task_id, uid]
-      );
-    }
+// 🔥 ดึง assignees จาก frontend จริงๆ
+if (Array.isArray(assignees)) {
+  for (const uid of assignees) {
+    if (uid) allAssignees.add(Number(uid));
+  }
+}
+
+// 🔥 FIX VERCEL BUILD (สำคัญ)
+const assigneeList = Array.from(allAssignees);
+
+for (const uid of assigneeList) {
+  await query(
+    `
+    INSERT INTO x_socrm.task_assignees (task_id, user_id)
+    VALUES ($1, $2)
+    ON CONFLICT DO NOTHING
+    `,
+    [task.task_id, uid]
+  );
+}
 
     await logActivity({
       entity_type: 'task',
