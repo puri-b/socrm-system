@@ -909,6 +909,96 @@ function ApprovalModal({ task, decisionNote, setDecisionNote, submitting, onClos
   );
 }
 
+
+function MultiUserSelect({
+  users,
+  value,
+  onChange,
+  placeholder = 'เลือกผู้ช่วย / ผู้รับผิดชอบร่วม',
+}: {
+  users: any[];
+  value: string[];
+  onChange: (value: string[]) => void;
+  placeholder?: string;
+}) {
+  const [open, setOpen] = useState(false);
+
+  const selectedUsers = users.filter((u: any) => value.includes(String(u.user_id)));
+
+  const toggleUser = (userId: string) => {
+    if (value.includes(userId)) {
+      onChange(value.filter((id) => id !== userId));
+    } else {
+      onChange([...value, userId]);
+    }
+  };
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        className="mt-2 w-full min-h-[52px] px-4 py-3 rounded-2xl bg-white border border-slate-100 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center justify-between"
+      >
+        <div className="flex flex-wrap gap-2 text-left">
+          {selectedUsers.length > 0 ? (
+            selectedUsers.map((u: any) => (
+              <span
+                key={u.user_id}
+                className="inline-flex items-center px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-semibold"
+              >
+                {u.full_name}
+              </span>
+            ))
+          ) : (
+            <span className="text-slate-400">{placeholder}</span>
+          )}
+        </div>
+
+        <svg
+          className={`w-4 h-4 shrink-0 ml-2 transition-transform ${open ? 'rotate-180' : ''}`}
+          viewBox="0 0 20 20"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
+          <path d="M6 8l4 4 4-4" />
+        </svg>
+      </button>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute z-20 mt-2 w-full rounded-2xl border border-slate-200 bg-white shadow-xl max-h-64 overflow-auto p-2">
+            {users.length > 0 ? (
+              users.map((u: any) => {
+                const checked = value.includes(String(u.user_id));
+
+                return (
+                  <label
+                    key={u.user_id}
+                    className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-slate-50 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleUser(String(u.user_id))}
+                      className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-slate-700">{u.full_name}</span>
+                  </label>
+                );
+              })
+            ) : (
+              <div className="px-3 py-2 text-sm text-slate-400">ไม่พบผู้ใช้งาน</div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function AddTaskModal({ user, customers, users, onClose, onSuccess }: any) {
   const [formData, setFormData] = useState<any>({
     customer_id: '',
@@ -1260,26 +1350,16 @@ function AddTaskModal({ user, customers, users, onClose, onSuccess }: any) {
 
                     <div className="md:col-span-2">
                       <label className="text-xs font-semibold text-slate-600">ผู้ช่วย / ผู้รับผิดชอบร่วม</label>
-                      <select
-                        multiple
+
+                      <MultiUserSelect
+                        users={users}
                         value={item.assignees}
-                        onChange={(e) =>
-                          updateTaskItem(
-                            item.id,
-                            'assignees',
-                            Array.from(e.target.selectedOptions).map((o) => o.value)
-                          )
-                        }
-                        className="mt-2 w-full min-h-[140px] px-4 py-3 rounded-2xl bg-white border border-slate-100 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      >
-                        {users.map((u: any) => (
-                          <option key={u.user_id} value={u.user_id}>
-                            {u.full_name}
-                          </option>
-                        ))}
-                      </select>
+                        onChange={(selectedValues) => updateTaskItem(item.id, 'assignees', selectedValues)}
+                        placeholder="เลือกผู้ช่วย / ผู้รับผิดชอบร่วม"
+                      />
+
                       <p className="mt-2 text-xs text-slate-400">
-                        กด Ctrl/Command ค้างไว้เพื่อเลือกหลายคน
+                        เลือกได้หลายคน โดยไม่ต้องกด Ctrl/Command
                       </p>
                     </div>
 
