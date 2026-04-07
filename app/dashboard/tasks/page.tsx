@@ -1217,11 +1217,12 @@ function AddTaskModal({ user, customers, users, onClose, onSuccess }: any) {
             <p className="text-xs text-slate-500 mt-0.5">สร้างหลาย task ในครั้งเดียว พร้อมกำหนดผู้รับผิดชอบหลายคน</p>
           </div>
           <button
-            onClick={submitting ? undefined : onClose}
-            className="p-2 rounded-xl hover:bg-white border border-transparent hover:border-slate-200 text-slate-500 transition"
+  type="button"
+  onClick={submitting ? undefined : onClose}
+  className="flex items-center justify-center w-9 h-9 rounded-xl hover:bg-slate-100 text-slate-500 transition"
           >
-            <Icons.Close />
-          </button>x
+      <Icons.Close />
+      </button>
         </div>
 
         <form onSubmit={createTasks} className="flex-1 overflow-auto">
