@@ -283,7 +283,8 @@ export async function POST(request: NextRequest) {
     allAssignees.add(assignedTo);
 
     if (Array.isArray(assignees)) {
-      for (const uid of assignees) {
+      const assigneeList = Array.from(allAssignees);
+    for (const uid of assigneeList) {
         if (uid) allAssignees.add(Number(uid));
       }
     }
