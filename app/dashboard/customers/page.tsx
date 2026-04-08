@@ -265,46 +265,24 @@ const LEAD_SOURCES = useMemo(
     setFilteredCustomers(filtered);
   };
 
+  // ✅ แก้ไขเฉพาะส่วนนี้: เรียก API route แทน frontend export
   const exportToExcel = async () => {
-    const XLSX = await import('xlsx');
-
-    const exportData = filteredCustomers.map((customer) => ({
-      'ชื่อบริษัท': customer.company_name,
-      อีเมล: customer.email,
-      เบอร์โทร: customer.phone,
-      ที่ตั้ง: customer.location,
-      ประเภทธุรกิจ: customer.business_type,
-      งบประมาณ: customer.budget,
-      ผู้ติดต่อ: customer.contact_person,
-      แหล่งที่มา: customer.lead_source,
-      สถานะ: customer.lead_status,
-      'มูลค่าสัญญา': customer.contract_value,
-      Sale: customer.sales_person_name,
-      แผนก: customer.department,
-      'วันที่สร้าง': new Date(customer.created_at).toLocaleDateString('th-TH'),
-    }));
-
-    const ws = XLSX.utils.json_to_sheet(exportData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Customers');
-
-    ws['!cols'] = [
-      { wch: 28 },
-      { wch: 24 },
-      { wch: 14 },
-      { wch: 30 },
-      { wch: 20 },
-      { wch: 12 },
-      { wch: 18 },
-      { wch: 18 },
-      { wch: 12 },
-      { wch: 14 },
-      { wch: 18 },
-      { wch: 10 },
-      { wch: 14 },
-    ];
-
-    XLSX.writeFile(wb, `Customers_${new Date().toISOString().split('T')[0]}.xlsx`);
+    try {
+      const response = await fetch('/api/export/excel');
+      if (!response.ok) throw new Error('Export failed');
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `CRM_Export_${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Export error:', err);
+      alert('เกิดข้อผิดพลาดในการส่งออกข้อมูล');
+    }
   };
 
   const viewCustomerDetail = (customer: any) => {
@@ -855,6 +833,8 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
     contract_duration: '',
     contract_start_date: '',
     contract_end_date: '',
+    win_reason: '',
+    lose_reason: '',
     selectedServices: [] as any[],
   });
   const [loading, setLoading] = useState(false);
@@ -1228,7 +1208,7 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
             <Field label="สถานะ Lead">
               <select
                 value={formData.lead_status}
-                onChange={(e) => setFormData({ ...formData, lead_status: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, lead_status: e.target.value, win_reason: '', lose_reason: '' })}
                 className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="Lead">Lead</option>
@@ -1240,6 +1220,30 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
               </select>
             </Field>
 
+            {formData.lead_status === 'PO' && (
+              <Field label="เหตุผลที่ได้งาน *">
+                <textarea
+                  rows={3}
+                  value={formData.win_reason}
+                  onChange={(e) => setFormData({ ...formData, win_reason: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  placeholder="ระบุเหตุผลที่ได้งาน เช่น ราคาดี, ความสัมพันธ์ดี, บริการตรงความต้องการ"
+                />
+              </Field>
+            )}
+
+            {formData.lead_status === 'Close' && (
+              <Field label="เหตุผลที่ไม่ได้งาน *">
+                <textarea
+                  rows={3}
+                  value={formData.lose_reason}
+                  onChange={(e) => setFormData({ ...formData, lose_reason: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  placeholder="ระบุเหตุผลที่ไม่ได้งาน เช่น ราคาสูงกว่าคู่แข่ง, ลูกค้าเลือกเจ้าอื่น"
+                />
+              </Field>
+            )}
+
             <Field label="วันที่ต้องติดตามครั้งถัดไป">
               <input
                 type="date"
@@ -1249,12 +1253,12 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
               />
             </Field>
 
-            <Field label="ระยะเวลาสัญญา">
+            <Field label="ระยะเวลาสัญญา(เดือน)">
               <input
                 value={formData.contract_duration}
                 onChange={(e) => setFormData({ ...formData, contract_duration: e.target.value })}
                 className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="เช่น 12 เดือน"
+                placeholder="ใส่แค่ตัวเลข เช่น 12"
               />
             </Field>
 
@@ -1332,7 +1336,7 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
 
     {(!formData.selectedServices || formData.selectedServices.length === 0) ? (
       <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100 text-sm text-slate-600">
-        ยังไม่ได้เลือกบริการ กรุณากด “เพิ่มบริการ”
+        ยังไม่ได้เลือกบริการ กรุณากด "เพิ่มบริการ"
       </div>
     ) : (
       <div className="space-y-2">
@@ -1340,7 +1344,6 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
           const selectedId = row?.service_id ? Number(row.service_id) : null;
           const selectedSvc = getServiceById(selectedId);
 
-          // กันเลือกซ้ำ: ถ้า id ถูกใช้ในแถวอื่นแล้ว จะไม่ให้เลือกซ้ำ
           const usedIds = new Set(
             (formData.selectedServices || [])
               .map((r: any) => (r?.service_id ? Number(r.service_id) : null))
@@ -1352,7 +1355,6 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
               key={index}
               className="grid grid-cols-12 gap-2 items-center p-3 rounded-2xl bg-slate-50 border border-slate-100"
             >
-              {/* Dropdown บริการ */}
               <div className="col-span-12 md:col-span-7">
                 <select
                   value={selectedId ?? ''}
@@ -1374,7 +1376,6 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
                 </select>
               </div>
 
-              {/* จำนวน */}
               <div className="col-span-8 md:col-span-4">
                 {selectedSvc?.requires_quantity ? (
                   <div className="flex items-center gap-2">
@@ -1403,7 +1404,6 @@ function AddCustomerModal({ user, users, leadSources, onClose, onSuccess }: any)
                 )}
               </div>
 
-              {/* ลบแถว */}
               <div className="col-span-4 md:col-span-1 flex justify-end">
                 <button
                   type="button"
@@ -1502,6 +1502,8 @@ function EditCustomerModal({ customer, user, users, leadSources, onClose, onSucc
     contract_end_date: customer.contract_end_date
       ? new Date(customer.contract_end_date).toISOString().slice(0, 10)
       : '',
+    win_reason: customer.win_reason || '',
+    lose_reason: customer.lose_reason || '',
     selectedServices: (customer.customer_services || []).map((s: any) => ({
       service_id: Number(s.service_id),
       quantity: Math.max(1, Number(s.quantity ?? 1)),
@@ -1539,13 +1541,11 @@ function EditCustomerModal({ customer, user, users, leadSources, onClose, onSucc
     }
   };
 
-  // ✅ helper: หา service object จาก id
   const getServiceById = (serviceId: number | null | undefined) => {
     if (!serviceId) return null;
     return services.find((s: any) => Number(s.service_id) === Number(serviceId)) || null;
   };
 
-  // ✅ เพิ่มแถวบริการ
   const addServiceRow = () => {
     setFormData((prev: any) => ({
       ...prev,
@@ -1553,7 +1553,6 @@ function EditCustomerModal({ customer, user, users, leadSources, onClose, onSucc
     }));
   };
 
-  // ✅ ลบแถวบริการ
   const removeServiceRow = (index: number) => {
     setFormData((prev: any) => ({
       ...prev,
@@ -1561,7 +1560,6 @@ function EditCustomerModal({ customer, user, users, leadSources, onClose, onSucc
     }));
   };
 
-  // ✅ เปลี่ยนบริการในแถว
   const updateServiceRowId = (index: number, serviceIdRaw: string) => {
     const serviceId = serviceIdRaw ? Number(serviceIdRaw) : null;
 
@@ -1569,7 +1567,6 @@ function EditCustomerModal({ customer, user, users, leadSources, onClose, onSucc
       const next = [...(prev.selectedServices || [])];
       next[index] = { ...next[index], service_id: serviceId };
 
-      // ถ้า service นั้นไม่ต้องใส่จำนวน ให้ fix เป็น 1
       const svc = getServiceById(serviceId);
       if (svc && !svc.requires_quantity) {
         next[index].quantity = 1;
@@ -1585,7 +1582,6 @@ function EditCustomerModal({ customer, user, users, leadSources, onClose, onSucc
     });
   };
 
-  // ✅ เปลี่ยนจำนวนในแถว
   const updateServiceRowQty = (index: number, qtyRaw: string) => {
     const qty = Math.max(1, Number(qtyRaw || 1));
     setFormData((prev: any) => {
@@ -1776,7 +1772,7 @@ function EditCustomerModal({ customer, user, users, leadSources, onClose, onSucc
             <Field label="สถานะ Lead">
               <select
                 value={formData.lead_status}
-                onChange={(e) => setFormData({ ...formData, lead_status: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, lead_status: e.target.value, win_reason: '', lose_reason: '' })}
                 className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="Lead">Lead</option>
@@ -1787,6 +1783,30 @@ function EditCustomerModal({ customer, user, users, leadSources, onClose, onSucc
                 <option value="Close">Close (ลูกค้าปฏิเสธ)</option>
               </select>
             </Field>
+
+            {formData.lead_status === 'PO' && (
+              <Field label="เหตุผลที่ได้งาน">
+                <textarea
+                  rows={3}
+                  value={formData.win_reason}
+                  onChange={(e) => setFormData({ ...formData, win_reason: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  placeholder="ระบุเหตุผลที่ได้งาน เช่น ราคาดี, ความสัมพันธ์ดี, บริการตรงความต้องการ"
+                />
+              </Field>
+            )}
+
+            {formData.lead_status === 'Close' && (
+              <Field label="เหตุผลที่ไม่ได้งาน">
+                <textarea
+                  rows={3}
+                  value={formData.lose_reason}
+                  onChange={(e) => setFormData({ ...formData, lose_reason: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-slate-50 border-none rounded-xl text-sm font-medium outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  placeholder="ระบุเหตุผลที่ไม่ได้งาน เช่น ราคาสูงกว่าคู่แข่ง, ลูกค้าเลือกเจ้าอื่น"
+                />
+              </Field>
+            )}
 
             <Field label="มูลค่าสัญญา">
               <input
@@ -1868,7 +1888,6 @@ function EditCustomerModal({ customer, user, users, leadSources, onClose, onSucc
               <div className="md:col-span-2">
                 <div className="flex items-center justify-between mb-2">
                   <div className="text-xs font-semibold text-slate-500 ml-1">บริการที่สนใจ</div>
-
                   <button
                     type="button"
                     onClick={addServiceRow}
@@ -1880,7 +1899,7 @@ function EditCustomerModal({ customer, user, users, leadSources, onClose, onSucc
 
                 {(!formData.selectedServices || formData.selectedServices.length === 0) ? (
                   <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100 text-sm text-slate-600">
-                    ยังไม่ได้เลือกบริการ กรุณากด “เพิ่มบริการ”
+                    ยังไม่ได้เลือกบริการ กรุณากด "เพิ่มบริการ"
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -1888,7 +1907,6 @@ function EditCustomerModal({ customer, user, users, leadSources, onClose, onSucc
                       const selectedId = row?.service_id ? Number(row.service_id) : null;
                       const selectedSvc = getServiceById(selectedId);
 
-                      // กันเลือกซ้ำ: ถ้า id ถูกใช้ในแถวอื่นแล้ว จะไม่ให้เลือกซ้ำ
                       const usedIds = new Set(
                         (formData.selectedServices || [])
                           .map((r: any) => (r?.service_id ? Number(r.service_id) : null))
@@ -1900,7 +1918,6 @@ function EditCustomerModal({ customer, user, users, leadSources, onClose, onSucc
                           key={index}
                           className="grid grid-cols-12 gap-2 items-center p-3 rounded-2xl bg-slate-50 border border-slate-100"
                         >
-                          {/* Dropdown บริการ */}
                           <div className="col-span-12 md:col-span-7">
                             <select
                               value={selectedId ?? ''}
@@ -1922,7 +1939,6 @@ function EditCustomerModal({ customer, user, users, leadSources, onClose, onSucc
                             </select>
                           </div>
 
-                          {/* จำนวน */}
                           <div className="col-span-8 md:col-span-4">
                             {selectedSvc?.requires_quantity ? (
                               <div className="flex items-center gap-2">
@@ -1951,7 +1967,6 @@ function EditCustomerModal({ customer, user, users, leadSources, onClose, onSucc
                             )}
                           </div>
 
-                          {/* ลบแถว */}
                           <div className="col-span-4 md:col-span-1 flex justify-end">
                             <button
                               type="button"

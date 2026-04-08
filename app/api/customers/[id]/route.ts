@@ -66,6 +66,8 @@ export async function PUT(
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
+    const leadStatus = toNullableString(data?.lead_status) || 'Lead';
+
     const cleanData = {
       company_name: toNullableString(data?.company_name),
       email: toNullableString(data?.email),
@@ -84,12 +86,15 @@ export async function PUT(
       is_quality_lead: isQualityLead,
       quality_lead_reason: qualityLeadReason,
       sales_person_id: toNullableNumber(data?.sales_person_id),
-      lead_status: toNullableString(data?.lead_status) || 'Lead',
+      lead_status: leadStatus,
       contract_value: toNullableNumber(data?.contract_value),
       pain_points: toNullableString(data?.pain_points),
       contract_duration: toNullableString(data?.contract_duration),
       contract_start_date: toNullableString(data?.contract_start_date),
       contract_end_date: toNullableString(data?.contract_end_date),
+      // ✅ เพิ่ม 2 บรรทัดนี้
+      win_reason: leadStatus === 'PO' ? toNullableString(data?.win_reason) : null,
+      lose_reason: leadStatus === 'Close' ? toNullableString(data?.lose_reason) : null,
     };
 
     if (!cleanData.company_name) {
@@ -100,6 +105,7 @@ export async function PUT(
     try {
       await client.query('BEGIN');
 
+      // ✅ เพิ่ม win_reason = $24, lose_reason = $25 และเลื่อน customer_id เป็น $26
       const result = await client.query(
         `UPDATE x_socrm.customers SET
           company_name = $1,
@@ -125,8 +131,10 @@ export async function PUT(
           contract_duration = $21,
           contract_start_date = $22,
           contract_end_date = $23,
+          win_reason = $24,
+          lose_reason = $25,
           updated_at = CURRENT_TIMESTAMP
-        WHERE customer_id = $24
+        WHERE customer_id = $26
         RETURNING *`,
         [
           cleanData.company_name,
@@ -152,7 +160,9 @@ export async function PUT(
           cleanData.contract_duration,
           cleanData.contract_start_date,
           cleanData.contract_end_date,
-          customerId,
+          cleanData.win_reason,  // $24
+          cleanData.lose_reason, // $25
+          customerId,            // $26
         ]
       );
 

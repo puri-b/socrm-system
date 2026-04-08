@@ -173,6 +173,10 @@ export async function POST(request: NextRequest) {
     const customer_services = data?.customer_services ?? data?.services;
     const force_create = data?.force_create === true || data?.force_create === 'true';
 
+    // ✅ เพิ่ม 2 บรรทัดนี้
+    const win_reason = lead_status === 'PO' ? toNullableString(data?.win_reason) : null;
+    const lose_reason = lead_status === 'Close' ? toNullableString(data?.lose_reason) : null;
+
     if (!company_name) {
       return NextResponse.json({ error: 'ชื่อบริษัทจำเป็นต้องระบุ' }, { status: 400 });
     }
@@ -277,19 +281,21 @@ export async function POST(request: NextRequest) {
 
     await client.query('BEGIN');
 
+    // ✅ เพิ่ม win_reason, lose_reason ใน INSERT
     const result = await client.query(
       `INSERT INTO x_socrm.customers (
         company_name, email, phone, location, registration_info, business_type, budget,
         contact_person, service_interested, lead_source, search_keyword, is_quality_lead,
         quality_lead_reason, sales_person_id, lead_status, contract_value, pain_points,
-        contract_duration, contract_start_date, contract_end_date, department, created_at, created_by
+        contract_duration, contract_start_date, contract_end_date, department,
+        win_reason, lose_reason, created_at, created_by
       ) VALUES (
-        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,
+        $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,
         CASE
-          WHEN $22::text IS NOT NULL AND $22::text <> '' THEN ($22::date + CURRENT_TIME)
+          WHEN $24::text IS NOT NULL AND $24::text <> '' THEN ($24::date + CURRENT_TIME)
           ELSE CURRENT_TIMESTAMP
         END,
-        $23
+        $25
       )
       RETURNING *`,
       [
@@ -314,8 +320,10 @@ export async function POST(request: NextRequest) {
         contract_start_date,
         contract_end_date,
         customerDept,
-        created_at_date,
-        user.user_id,
+        win_reason,   // $22
+        lose_reason,  // $23
+        created_at_date, // $24
+        user.user_id,    // $25
       ]
     );
 
@@ -384,7 +392,7 @@ export async function POST(request: NextRequest) {
       autoTask = taskResult.rows[0] || null;
     }
 
-       await client.query('COMMIT');
+    await client.query('COMMIT');
 
     return NextResponse.json({
       success: true,
