@@ -693,13 +693,13 @@ export default function DashboardPage() {
       <section className="space-y-6">
         <div className="flex items-center gap-4">
           <div className="h-8 w-1.5 bg-slate-800 rounded-full"></div>
-          <h3 className="text-xl font-black text-slate-800 tracking-tight">Pipeline Overview</h3>
+          <h3 className="text-xl font-black text-slate-800 tracking-tight">Customers Overview</h3>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <DonutCard
             title="Customers"
-            subtitle="จำนวนลูกค้าแต่ละ Pipeline"
+            subtitle="จำนวนลูกค้าทั้งหมด"
             data={[
               { label: 'Lead', value: stats.leadCount, color: '#475569' },
               { label: 'Potential', value: stats.potentialCount, color: '#f59e0b' },
@@ -715,7 +715,7 @@ export default function DashboardPage() {
 
           <DonutCard
             title="Value"
-            subtitle="มูลค่าของแต่ละ Pipeline"
+            subtitle="มูลค่าของลูกค้าแต่ละกลุ่ม"
             data={[
               { label: 'Lead', value: stats.leadValue, color: '#475569' },
               { label: 'Potential', value: stats.potentialValue, color: '#f59e0b' },
@@ -736,7 +736,7 @@ export default function DashboardPage() {
       <section className="space-y-6">
         <div className="flex items-center gap-4">
           <div className="h-8 w-1.5 bg-blue-600 rounded-full"></div>
-          <h3 className="text-xl font-black text-slate-800 tracking-tight">Pipeline Progress</h3>
+          <h3 className="text-xl font-black text-slate-800 tracking-tight">สรุปรวมมูลค่าของลูกค้าของแต่ละกลุ่ม</h3>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
           <ModernStatCard title="Lead" count={stats.leadCount} value={stats.leadValue} themeColor="slate" icon={Icons.Lead} />
