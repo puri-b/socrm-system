@@ -116,6 +116,25 @@ export default function TasksPage() {
   const [projectFilter, setProjectFilter] = useState('all');
   const [assignedFilter, setAssignedFilter] = useState('all');
 
+  // ✅ FIX: เมื่อเปลี่ยนลูกค้า ให้ reset projectFilter และแสดงเฉพาะโปรเจคของลูกค้านั้น
+  const handleCustomerFilterChange = (value: string) => {
+    setCustomerFilter(value);
+    setProjectFilter('all');
+  };
+
+  const filteredProjectOptions = useMemo(() => {
+    const sourceTasks = customerFilter !== 'all'
+      ? tasks.filter((t: any) => Number(t.customer_id) === Number(customerFilter))
+      : tasks;
+    return Array.from(
+      new Map(
+        sourceTasks
+          .filter((t: any) => t.project_id)
+          .map((t: any) => [String(t.project_id), { project_id: t.project_id, project_name: t.project_name }])
+      ).values()
+    );
+  }, [tasks, customerFilter]);
+
   const resetFilters = () => {
     setStatusFilter('all');
     setCustomerFilter('all');
@@ -449,7 +468,7 @@ export default function TasksPage() {
 
           <select
             value={customerFilter}
-            onChange={(e) => setCustomerFilter(e.target.value)}
+            onChange={(e) => handleCustomerFilterChange(e.target.value)}
             className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="all">ลูกค้าทั้งหมด</option>
@@ -465,15 +484,13 @@ export default function TasksPage() {
             onChange={(e) => setProjectFilter(e.target.value)}
             className="w-full px-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-sm text-slate-700 outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <option value="all">โปรเจคทั้งหมด</option>
+            <option value="all">
+              {customerFilter !== 'all' && filteredProjectOptions.length === 0
+                ? 'ไม่มีโปรเจคสำหรับลูกค้านี้'
+                : 'โปรเจคทั้งหมด'}
+            </option>
             <option value="none">ไม่มีโปรเจค</option>
-            {Array.from(
-              new Map(
-                tasks
-                  .filter((t: any) => t.project_id)
-                  .map((t: any) => [String(t.project_id), { project_id: t.project_id, project_name: t.project_name }])
-              ).values()
-            ).map((p: any) => (
+            {filteredProjectOptions.map((p: any) => (
               <option key={p.project_id} value={p.project_id}>
                 {p.project_name || `Project #${p.project_id}`}
               </option>
