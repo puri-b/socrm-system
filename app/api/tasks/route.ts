@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUserFromRequest, canAccessDepartment, getAccessibleDepartments } from '@/lib/auth';
+import { sendMail, buildTaskAssignedEmail, buildApprovalRequestEmail } from '@/lib/mailer';
 
 type EntityType = 'customer' | 'project' | 'task';
 
@@ -318,6 +319,60 @@ for (const uid of assigneeList) {
       },
     });
 
+    // ─── ส่งอีเมลแจ้งเตือนผู้ถูก assign (ทุกคน) ───
+    try {
+      const appUrl = (process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://socrm-system.vercel.app').replace(/\/+$/, '');
+
+      // ดึงข้อมูลผู้ถูก assign ทั้งหมด (email + ชื่อ)
+      const assigneeIds = Array.from(allAssignees);
+      if (assigneeIds.length > 0) {
+        const assigneeRes = await query(
+          `SELECT user_id, full_name, email FROM x_socrm.users WHERE user_id = ANY($1::int[]) AND email IS NOT NULL AND email <> ''`,
+          [assigneeIds]
+        );
+
+        // ดึงชื่อผู้สร้าง (creator)
+        const creatorRes = await query(
+          `SELECT full_name FROM x_socrm.users WHERE user_id = $1`,
+          [user.user_id]
+        );
+        const creatorName = creatorRes.rows[0]?.full_name || 'ระบบ';
+
+        // ดึงชื่อโปรเจค (ถ้ามี)
+        let projectName: string | null = null;
+        if (project_id) {
+          const projRes = await query(
+            `SELECT project_name FROM x_socrm.projects WHERE project_id = $1`,
+            [Number(project_id)]
+          );
+          projectName = projRes.rows[0]?.project_name || null;
+        }
+
+        const customerName = custRes.rows[0]?.company_name || null;
+
+        // ส่งอีเมลแยกกันทีละคน (เพื่อให้ชื่อ To ถูกต้อง)
+        for (const assignee of assigneeRes.rows) {
+          await sendMail({
+            to: [{ name: assignee.full_name, email: assignee.email }],
+            subject: `[SO CRM] งานใหม่: ${task.title}`,
+            htmlBody: buildTaskAssignedEmail({
+              assigneeName: assignee.full_name,
+              taskTitle: task.title,
+              taskDescription: task.description || null,
+              taskDate: task.task_date || null,
+              customerName,
+              projectName,
+              createdByName: creatorName,
+              appUrl,
+            }),
+          });
+        }
+      }
+    } catch (mailErr) {
+      // ไม่ทำให้ task creation fail เพราะอีเมล
+      console.error('[tasks POST] email error:', mailErr);
+    }
+
     return NextResponse.json({ success: true, task });
   } catch (error) {
     console.error('Create task error:', error);
@@ -433,6 +488,57 @@ export async function PATCH(request: NextRequest) {
           required_approver_ids: requiredApproverIds,
         },
       });
+
+      // ─── ส่งอีเมลแจ้งผู้ที่ต้อง Approve ───
+      try {
+        const appUrl = (process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://socrm-system.vercel.app').replace(/\/+$/, '');
+
+        // ดึงข้อมูล approver (created_by)
+        const approverRes = await query(
+          `SELECT full_name, email FROM x_socrm.users WHERE user_id = $1`,
+          [Number(task.created_by)]
+        );
+
+        // ดึงข้อมูล requester (ผู้ที่ขอ)
+        const requesterRes = await query(
+          `SELECT full_name FROM x_socrm.users WHERE user_id = $1`,
+          [Number(user.user_id)]
+        );
+
+        // ดึงชื่อลูกค้าและโปรเจค
+        const taskInfoRes = await query(
+          `SELECT c.company_name, p.project_name
+           FROM x_socrm.tasks t
+           LEFT JOIN x_socrm.customers c ON t.customer_id = c.customer_id
+           LEFT JOIN x_socrm.projects p ON t.project_id = p.project_id
+           WHERE t.task_id = $1`,
+          [Number(task_id)]
+        );
+
+        const approver = approverRes.rows[0];
+        const requesterName = requesterRes.rows[0]?.full_name || 'ผู้ใช้งาน';
+        const taskInfo = taskInfoRes.rows[0];
+
+        // ส่งเฉพาะกรณีที่ approver ไม่ใช่คนเดียวกับ requester
+        if (approver?.email && Number(task.created_by) !== Number(user.user_id)) {
+          await sendMail({
+            to: [{ name: approver.full_name, email: approver.email }],
+            subject: `[SO CRM] รออนุมัติ: ${task.title}`,
+            htmlBody: buildApprovalRequestEmail({
+              approverName: approver.full_name,
+              requesterName,
+              taskTitle: task.title,
+              requestedStatus: newStatus,
+              note: note || null,
+              customerName: taskInfo?.company_name || null,
+              projectName: taskInfo?.project_name || null,
+              appUrl,
+            }),
+          });
+        }
+      } catch (mailErr) {
+        console.error('[tasks PATCH] approval email error:', mailErr);
+      }
 
       return NextResponse.json({
         success: true,

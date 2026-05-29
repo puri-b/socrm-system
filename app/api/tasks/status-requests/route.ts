@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUserFromRequest } from '@/lib/auth';
+import { sendMail, buildApprovalRequestEmail } from '@/lib/mailer';
 
 type EntityType = 'customer' | 'project' | 'task';
 
