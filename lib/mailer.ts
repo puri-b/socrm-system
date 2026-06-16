@@ -79,9 +79,15 @@ export async function sendMail(options: SendMailOptions): Promise<void> {
   try {
     const token = await getGraphToken();
 
-    const payload = {
+ const payload = {
       message: {
         subject: options.subject,
+        from: {
+          emailAddress: {
+            address: SENDER_EMAIL,
+            name: 'SO CRM System',
+          },
+        },
         body: {
           contentType: 'HTML',
           content: options.htmlBody,
@@ -118,7 +124,8 @@ export async function sendMail(options: SendMailOptions): Promise<void> {
   } catch (err) {
     console.error('[mailer] Failed to send email:', err);
   }
-}
+}   
+
 
 // ─────────────────────────────────────────────────────────────
 // Template: แจ้งเตือนเมื่อถูก assign task ใหม่
