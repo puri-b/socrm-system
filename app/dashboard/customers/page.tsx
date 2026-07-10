@@ -119,6 +119,9 @@ const LEAD_SOURCES = useMemo(
     'Online - Line',
     'Online - Leadform',
     'Online - E-mail',
+    'Online - AI ChatGPT',
+    'Online - AI Gemini',
+    'Online - AI อื่นๆ',
     'Online - อื่นๆ',
   ],
   []
