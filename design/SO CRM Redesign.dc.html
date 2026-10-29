@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'IBM Plex Sans Thai','IBM Plex Sans',system-ui,sans-serif;background:#EEF1F5;color:#0F1729;-webkit-font-smoothing:antialiased}
+  a{color:#2563EB;text-decoration:none}
+  a:hover{color:#1D4FB8}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-thumb{background:#CBD2DC;border-radius:8px;border:2px solid #EEF1F5}
+</style>
+</helmet>
+
+<div style="min-height:100vh;background:linear-gradient(180deg,#EEF1F5 0%,#F3F5F8 100%)">
+
+  <!-- ===== HEADER ===== -->
+  <header style="position:sticky;top:0;z-index:40;background:rgba(255,255,255,0.82);backdrop-filter:blur(12px);border-bottom:1px solid #E4E8EE">
+    <div style="max-width:1440px;margin:0 auto;padding:14px 28px;display:flex;align-items:center;gap:24px">
+      <div style="display:flex;align-items:center;gap:12px;flex-shrink:0">
+        <div style="width:40px;height:40px;border-radius:11px;background:#E4342E;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:17px;letter-spacing:-0.5px">SO</div>
+        <div style="line-height:1.1">
+          <div style="font-weight:700;font-size:17px;letter-spacing:-0.2px">SO CRM</div>
+          <div style="font-size:11px;color:#94A0B0">Customer Relationship</div>
+        </div>
+      </div>
+
+      <!-- Global search -->
+      <div style="flex:1;min-width:0;max-width:520px;position:relative">
+        <div onClick="{{ openCmd }}" style="display:flex;align-items:center;gap:10px;height:42px;padding:0 14px;background:#F2F4F8;border:1px solid #E4E8EE;border-radius:12px;cursor:text;color:#8A96A6;overflow:hidden">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#8A96A6" stroke-width="2" style="flex-shrink:0"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <span style="font-size:14px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">ค้นหาองค์กร ดีล ผู้ติดต่อ… หรือถาม AI</span>
+          <span style="display:flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:#94A0B0;background:#fff;border:1px solid #E4E8EE;border-radius:7px;padding:3px 7px;flex-shrink:0">⌘K</span>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:14px;flex-shrink:0">
+        <div style="text-align:right;line-height:1.25">
+          <div style="font-weight:600;font-size:14px">Chinnapat Jadcharoen</div>
+          <div style="font-size:12px;color:#94A0B0"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="accfc4c5c2c2cddccdd882c6ecdfc5cdc1decdc682cfc3c1">[email&#160;protected]</a></div>
+        </div>
+        <span style="font-size:11px;font-weight:600;color:#E4342E;background:#FCEBEA;padding:4px 10px;border-radius:8px">admin</span>
+        <button style="display:flex;align-items:center;gap:7px;height:40px;padding:0 14px;background:#fff;border:1px solid #E4E8EE;border-radius:11px;font-family:inherit;font-size:13px;font-weight:600;color:#4A5568;cursor:pointer">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>
+          ออกจากระบบ
+        </button>
+      </div>
+    </div>
+
+    <!-- Nav -->
+    <div style="max-width:1440px;margin:0 auto;padding:0 28px 14px;display:flex;align-items:center;gap:6px">
+      <sc-for list="{{ nav }}" as="n" hint-placeholder-count="6">
+        <button onClick="{{ n.onClick }}" style="display:flex;align-items:center;gap:8px;height:40px;padding:0 15px;border:none;border-radius:11px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;background:{{ n.bg }};color:{{ n.fg }}">
+          <span style="font-size:15px">{{ n.icon }}</span>{{ n.label }}
+        </button>
+      </sc-for>
+      <div style="flex:1"></div>
+      <div style="position:relative">
+        <button onClick="{{ toggleAdmin }}" style="display:flex;align-items:center;gap:8px;height:40px;padding:0 15px;border:none;border-radius:11px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;background:{{ adminBg }};color:{{ adminFg }}">
+          <span style="font-size:15px">⚙️</span>ผู้ดูแลระบบ
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <sc-if value="{{ adminOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;top:46px;right:0;width:260px;background:#fff;border:1px solid #E4E8EE;border-radius:14px;box-shadow:0 16px 40px -12px rgba(15,23,41,0.22);padding:8px;z-index:50">
+            <sc-for list="{{ adminItems }}" as="a" hint-placeholder-count="8">
+              <button onClick="{{ a.onClick }}" style="width:100%;display:flex;align-items:center;gap:11px;padding:10px 12px;border:none;background:{{ a.bg }};border-radius:9px;font-family:inherit;font-size:13.5px;font-weight:500;color:#0F1729;cursor:pointer;text-align:left">
+                <span style="font-size:15px;width:20px;text-align:center">{{ a.icon }}</span>{{ a.label }}
+              </button>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+  </header>
+
+  <!-- Command palette -->
+  <sc-if value="{{ cmdOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeCmd }}" style="position:fixed;inset:0;z-index:60;background:rgba(15,23,41,0.32);backdrop-filter:blur(3px);display:flex;justify-content:center;padding-top:12vh">
+      <div style="width:min(620px,92vw);height:max-content;background:#fff;border-radius:18px;box-shadow:0 32px 80px -20px rgba(15,23,41,0.4);overflow:hidden">
+        <div style="display:flex;align-items:center;gap:12px;padding:18px 20px;border-bottom:1px solid #EEF1F5">
+          <span style="font-size:18px">✨</span>
+          <input autofocus placeholder="พิมพ์เพื่อค้นหา หรือถามเป็นภาษาพูด เช่น “ลูกค้า CR ที่ได้ PO เกิน 1 ล้าน”" style="flex:1;border:none;outline:none;font-family:inherit;font-size:15px;color:#0F1729;background:transparent" />
+          <span style="font-size:11px;font-weight:600;color:#94A0B0;background:#F2F4F8;border-radius:7px;padding:4px 8px">ESC</span>
+        </div>
+        <div style="padding:12px 12px 16px">
+          <div style="font-size:11px;font-weight:600;color:#94A0B0;letter-spacing:0.4px;padding:6px 10px">ถาม AI</div>
+          <sc-for list="{{ aiSuggest }}" as="s" hint-placeholder-count="3">
+            <button style="width:100%;display:flex;align-items:center;gap:12px;padding:11px 10px;border:none;background:transparent;border-radius:10px;font-family:inherit;font-size:14px;color:#0F1729;cursor:pointer;text-align:left" style-hover="background:#F2F4F8">
+              <span style="width:26px;height:26px;border-radius:8px;background:#EEF3FF;color:#2563EB;display:flex;align-items:center;justify-content:center;font-size:13px">↳</span>{{ s }}
+            </button>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ===== BODY ===== -->
+  <main style="max-width:1440px;margin:0 auto;padding:28px">
+
+    <!-- ============ DASHBOARD ============ -->
+    <sc-if value="{{ isDash }}" hint-placeholder-val="{{ true }}">
+    <div>
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:20px">
+        <div>
+          <h1 style="margin:0;font-size:26px;font-weight:700;letter-spacing:-0.4px">ภาพรวม</h1>
+          <p style="margin:6px 0 0;font-size:14px;color:#6B7688">สวัสดี Chinnapat · เห็นทุก BU · <span style="color:#94A0B0">มูลค่าแสดงเป็นหน่วย MB (ล้านบาท)</span></p>
+        </div>
+        <div style="display:flex;gap:10px">
+          <button onClick="{{ toggleFilters }}" style="display:flex;align-items:center;gap:8px;height:40px;padding:0 15px;background:#fff;border:1px solid #E4E8EE;border-radius:11px;font-family:inherit;font-size:13.5px;font-weight:600;color:#4A5568;cursor:pointer">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 4h18l-7 8v6l-4 2v-8L3 4z"/></svg>ตัวกรอง<span style="background:#EEF3FF;color:#2563EB;font-size:11px;border-radius:6px;padding:1px 7px">2</span>
+          </button>
+          <button style="display:flex;align-items:center;gap:8px;height:40px;padding:0 16px;background:#2563EB;border:none;border-radius:11px;font-family:inherit;font-size:13.5px;font-weight:600;color:#fff;cursor:pointer">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Export ดีล
+          </button>
+        </div>
+      </div>
+
+      <!-- collapsible filter -->
+      <sc-if value="{{ filtersOpen }}" hint-placeholder-val="{{ false }}">
+        <div style="background:#fff;border:1px solid #E4E8EE;border-radius:16px;padding:18px 20px;margin-bottom:18px;display:grid;grid-template-columns:repeat(4,1fr);gap:14px">
+          <sc-for list="{{ filterFields }}" as="f" hint-placeholder-count="4">
+            <label style="display:block">
+              <span style="display:block;font-size:12px;font-weight:600;color:#6B7688;margin-bottom:6px">{{ f.label }}</span>
+              <div style="height:42px;padding:0 13px;display:flex;align-items:center;justify-content:space-between;background:#F6F8FB;border:1px solid #E4E8EE;border-radius:10px;font-size:13.5px;color:#4A5568">{{ f.value }}<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94A0B0" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></div>
+            </label>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <!-- KPI row (compact) -->
+      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:18px">
+        <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="6">
+          <div style="background:#fff;border:1px solid #E4E8EE;border-radius:16px;padding:16px 16px 15px">
+            <div style="font-size:11px;font-weight:600;color:#94A0B0;letter-spacing:0.4px;text-transform:uppercase">{{ k.label }}</div>
+            <div style="font-size:24px;font-weight:700;margin:8px 0 3px;letter-spacing:-0.6px">{{ k.value }}</div>
+            <div style="font-size:12px;color:#8A96A6">{{ k.sub }}</div>
+          </div>
+        </sc-for>
+      </div>
+
+      <!-- Tasks first (action) -->
+      <div style="background:#fff;border:1px solid #E4E8EE;border-radius:18px;padding:22px;margin-bottom:18px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <h2 style="margin:0;font-size:17px;font-weight:700">งานที่ต้องทำวันนี้</h2>
+            <span style="background:#FCEBEA;color:#E4342E;font-size:12px;font-weight:700;border-radius:8px;padding:3px 10px">เกินกำหนด 171</span>
+          </div>
+          <a onClick="{{ goTasks }}" style="font-size:13.5px;font-weight:600;cursor:pointer">จัดการงานทั้งหมด →</a>
+        </div>
+        <div style="display:flex;flex-direction:column">
+          <sc-for list="{{ dashTasks }}" as="t" hint-placeholder-count="4">
+            <div style="display:flex;align-items:center;gap:14px;padding:13px 4px;border-top:1px solid #F2F4F8">
+              <span style="width:8px;height:8px;border-radius:50%;background:{{ t.dot }};flex-shrink:0"></span>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:14.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.name }}</div>
+                <div style="font-size:12.5px;color:#8A96A6">{{ t.detail }} · {{ t.owner }}</div>
+              </div>
+              <span style="font-size:11px;font-weight:600;color:#6B7688;background:#F2F4F8;border-radius:7px;padding:3px 9px">{{ t.bu }}</span>
+              <span style="font-size:13px;font-weight:600;color:{{ t.dueColor }};min-width:120px;text-align:right">{{ t.due }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <!-- Funnel + Top sales -->
+      <div style="display:grid;grid-template-columns:1.6fr 1fr;gap:18px;margin-bottom:18px">
+        <div style="background:#fff;border:1px solid #E4E8EE;border-radius:18px;padding:22px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+            <h2 style="margin:0;font-size:17px;font-weight:700">ขั้นตอนการขาย (Sales Funnel)</h2>
+            <a onClick="{{ goPipe }}" style="font-size:13.5px;font-weight:600;cursor:pointer">ไปหน้าดีล →</a>
+          </div>
+          <sc-for list="{{ funnel }}" as="f" hint-placeholder-count="4">
+            <div style="margin-bottom:14px">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+                <span style="font-size:13.5px;font-weight:600;color:#4A5568">{{ f.label }}</span>
+                <span style="font-size:12.5px;color:#8A96A6">{{ f.mb }}</span>
+              </div>
+              <div style="height:26px;background:#F2F4F8;border-radius:8px;overflow:hidden">
+                <div style="height:100%;width:{{ f.width }};background:{{ f.color }};border-radius:8px;display:flex;align-items:center;padding:0 10px;color:#fff;font-size:12.5px;font-weight:700">{{ f.count }}</div>
+              </div>
+            </div>
+          </sc-for>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:18px;padding-top:18px;border-top:1px solid #F2F4F8">
+            <div style="background:#EBF7F0;border-radius:12px;padding:13px"><div style="font-size:12px;color:#178A55;font-weight:600">ได้งาน (PO)</div><div style="font-size:17px;font-weight:700;margin-top:3px">49 ดีล · 43.38 MB</div></div>
+            <div style="background:#FCEBEA;border-radius:12px;padding:13px"><div style="font-size:12px;color:#E4342E;font-weight:600">ปิด/แพ้</div><div style="font-size:17px;font-weight:700;margin-top:3px">144 ดีล · 48.51 MB</div></div>
+            <div style="background:#F2F4F8;border-radius:12px;padding:13px"><div style="font-size:12px;color:#6B7688;font-weight:600">Win rate</div><div style="font-size:17px;font-weight:700;margin-top:3px">25% <span style="font-size:12px;font-weight:500;color:#8A96A6">จาก 193</span></div></div>
+          </div>
+        </div>
+
+        <div style="background:#fff;border:1px solid #E4E8EE;border-radius:18px;padding:22px">
+          <h2 style="margin:0 0 16px;font-size:17px;font-weight:700">Top Sales <span style="font-size:12.5px;font-weight:500;color:#8A96A6">(มูลค่าที่ได้งาน)</span></h2>
+          <sc-for list="{{ topSales }}" as="s" hint-placeholder-count="5">
+            <div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-top:1px solid #F2F4F8">
+              <span style="width:26px;height:26px;border-radius:50%;background:{{ s.rankBg }};color:{{ s.rankFg }};display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:700;flex-shrink:0">{{ s.rank }}</span>
+              <span style="flex:1;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ s.name }}</span>
+              <span style="font-size:13.5px;font-weight:700">{{ s.mb }}</span>
+              <span style="font-size:12px;color:#8A96A6;min-width:46px;text-align:right">{{ s.deals }} ดีล</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <!-- Donut section (single) -->
+      <div style="background:#fff;border:1px solid #E4E8EE;border-radius:18px;padding:22px">
+        <h2 style="margin:0 0 20px;font-size:17px;font-weight:700">สัดส่วนต่อสถานะ</h2>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:32px">
+          <sc-for list="{{ donuts }}" as="d" hint-placeholder-count="2">
+            <div>
+              <div style="font-size:12px;font-weight:600;color:#94A0B0;letter-spacing:0.4px;margin-bottom:14px">{{ d.title }}</div>
+              <div style="display:flex;align-items:center;gap:26px">
+                <div style="width:150px;height:150px;border-radius:50%;flex-shrink:0;background:{{ d.gradient }};display:flex;align-items:center;justify-content:center" data-om-raster="true">
+                  <div style="width:96px;height:96px;border-radius:50%;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center">
+                    <span style="font-size:11px;color:#94A0B0">TOTAL</span>
+                    <span style="font-size:19px;font-weight:700">{{ d.total }}</span>
+                  </div>
+                </div>
+                <div style="flex:1">
+                  <sc-for list="{{ d.rows }}" as="r" hint-placeholder-count="6">
+                    <div style="display:flex;align-items:center;gap:9px;padding:5px 0;font-size:13px">
+                      <span style="width:9px;height:9px;border-radius:50%;background:{{ r.color }}"></span>
+                      <span style="flex:1;color:#4A5568">{{ r.label }}</span>
+                      <span style="font-weight:600">{{ r.value }}</span>
+                      <span style="color:#94A0B0;min-width:44px;text-align:right">{{ r.pct }}</span>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- ============ PIPELINE ============ -->
+    <sc-if value="{{ isPipe }}" hint-placeholder-val="{{ false }}">
+    <div>
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:18px">
+        <div>
+          <h1 style="margin:0;font-size:26px;font-weight:700;letter-spacing:-0.4px">ดีล (Pipeline)</h1>
+          <p style="margin:6px 0 0;font-size:14px;color:#6B7688">ติดตามดีลทุก stage · คลิกดีลเพื่อบันทึกการติดต่อ / สร้างงาน</p>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center">
+          <div style="display:flex;background:#fff;border:1px solid #E4E8EE;border-radius:11px;padding:3px">
+            <button onClick="{{ setPipeTable }}" style="height:34px;padding:0 15px;border:none;border-radius:8px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;background:{{ pipeTableBg }};color:{{ pipeTableFg }}">ตาราง</button>
+            <button onClick="{{ setPipeBoard }}" style="height:34px;padding:0 15px;border:none;border-radius:8px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;background:{{ pipeBoardBg }};color:{{ pipeBoardFg }}">บอร์ด</button>
+          </div>
+          <button style="display:flex;align-items:center;gap:8px;height:40px;padding:0 15px;background:#fff;border:1px solid #E4E8EE;border-radius:11px;font-family:inherit;font-size:13.5px;font-weight:600;color:#4A5568;cursor:pointer">Export Excel</button>
+        </div>
+      </div>
+
+      <!-- stage chips (count only, MB removed) -->
+      <div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap">
+        <sc-for list="{{ stages }}" as="s" hint-placeholder-count="7">
+          <div style="display:flex;align-items:center;gap:9px;padding:9px 15px;background:{{ s.bg }};border:1px solid {{ s.border }};border-radius:11px">
+            <span style="width:9px;height:9px;border-radius:50%;background:{{ s.dot }}"></span>
+            <span style="font-size:13.5px;font-weight:600;color:{{ s.fg }}">{{ s.label }}</span>
+            <span style="font-size:14px;font-weight:700;color:{{ s.fg }}">{{ s.count }}</span>
+          </div>
+        </sc-for>
+      </div>
+
+      <sc-if value="{{ pipeIsTable }}" hint-placeholder-val="{{ true }}">
+        <div style="background:#fff;border:1px solid #E4E8EE;border-radius:18px;overflow:hidden">
+          <div style="display:grid;grid-template-columns:2.4fr 0.7fr 1fr 1.3fr 1.4fr;gap:14px;padding:15px 22px;background:#F8FAFC;font-size:12px;font-weight:600;color:#94A0B0;letter-spacing:0.3px">
+            <span>ลูกค้า / ดีล</span><span>BU</span><span>สถานะ</span><span style="text-align:right">มูลค่า (บาท)</span><span>Sale</span>
+          </div>
+          <sc-for list="{{ deals }}" as="d" hint-placeholder-count="8">
+            <div style="display:grid;grid-template-columns:2.4fr 0.7fr 1fr 1.3fr 1.4fr;gap:14px;padding:15px 22px;border-top:1px solid #F2F4F8;align-items:center">
+              <a style="font-size:14px;font-weight:600;color:#2563EB;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ d.name }}</a>
+              <span style="font-size:11px;font-weight:600;color:#6B7688;background:#F2F4F8;border-radius:6px;padding:2px 8px;width:max-content">{{ d.bu }}</span>
+              <span style="font-size:12px;font-weight:600;color:{{ d.stColor }};background:{{ d.stBg }};border-radius:7px;padding:3px 10px;width:max-content">{{ d.status }}</span>
+              <span style="font-size:14px;font-weight:600;text-align:right">{{ d.value }}</span>
+              <span style="font-size:13.5px;color:#4A5568">{{ d.sale }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ pipeIsBoard }}" hint-placeholder-val="{{ false }}">
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px">
+          <sc-for list="{{ board }}" as="c" hint-placeholder-count="4">
+            <div style="background:#F5F7FA;border:1px solid #E9EDF2;border-radius:16px;padding:12px">
+              <div style="display:flex;align-items:center;gap:8px;padding:4px 6px 12px">
+                <span style="width:9px;height:9px;border-radius:50%;background:{{ c.dot }}"></span>
+                <span style="font-size:13.5px;font-weight:700;color:{{ c.fg }}">{{ c.label }}</span>
+                <span style="font-size:12px;font-weight:600;color:#94A0B0;margin-left:auto">{{ c.count }}</span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:9px">
+                <sc-for list="{{ c.cards }}" as="k" hint-placeholder-count="3">
+                  <div style="background:#fff;border:1px solid #E4E8EE;border-radius:12px;padding:12px;cursor:grab;box-shadow:0 1px 2px rgba(15,23,41,0.04)">
+                    <div style="font-size:13.5px;font-weight:600;line-height:1.35;margin-bottom:8px">{{ k.name }}</div>
+                    <div style="display:flex;align-items:center;justify-content:space-between">
+                      <span style="font-size:11px;font-weight:600;color:#6B7688;background:#F2F4F8;border-radius:6px;padding:2px 8px">{{ k.bu }}</span>
+                      <span style="font-size:12.5px;font-weight:700;color:#4A5568">{{ k.value }}</span>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+    </div>
+    </sc-if>
+
+    <!-- ============ ACCOUNTS LIST ============ -->
+    <sc-if value="{{ isAccounts }}" hint-placeholder-val="{{ false }}">
+    <div>
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:18px">
+        <div>
+          <h1 style="margin:0;font-size:26px;font-weight:700;letter-spacing:-0.4px">ลูกค้า (Account)</h1>
+          <p style="margin:6px 0 0;font-size:14px;color:#6B7688">1 องค์กร = 1 account · รวมทุกดีลข้าม BU</p>
+        </div>
+        <div style="display:flex;gap:10px">
+          <button style="display:flex;align-items:center;gap:8px;height:40px;padding:0 15px;background:#fff;border:1px solid #E4E8EE;border-radius:11px;font-family:inherit;font-size:13.5px;font-weight:600;color:#4A5568;cursor:pointer">Export</button>
+          <button style="display:flex;align-items:center;gap:8px;height:40px;padding:0 15px;background:#fff;border:1px solid #E4E8EE;border-radius:11px;font-family:inherit;font-size:13.5px;font-weight:600;color:#4A5568;cursor:pointer">สแกนนามบัตร</button>
+          <button style="display:flex;align-items:center;gap:8px;height:40px;padding:0 16px;background:#2563EB;border:none;border-radius:11px;font-family:inherit;font-size:13.5px;font-weight:600;color:#fff;cursor:pointer">+ เพิ่มลูกค้าใหม่</button>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
+        <div style="flex:1;max-width:420px;display:flex;align-items:center;gap:10px;height:44px;padding:0 15px;background:#fff;border:1px solid #E4E8EE;border-radius:12px">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#94A0B0" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <span style="font-size:14px;color:#94A0B0">ค้นหาชื่อองค์กร…</span>
+        </div>
+        <span style="font-size:13px;color:#8A96A6">แสดง 1–50 จาก 612 องค์กร</span>
+      </div>
+      <div style="background:#fff;border:1px solid #E4E8EE;border-radius:18px;overflow:hidden">
+        <div style="display:grid;grid-template-columns:3fr 0.8fr 0.8fr 1.2fr;gap:14px;padding:15px 22px;background:#F8FAFC;font-size:12px;font-weight:600;color:#94A0B0;letter-spacing:0.3px">
+          <span>องค์กร</span><span>BU ที่ดูแล</span><span style="text-align:center">ดีล</span><span style="text-align:right">มูลค่ารวม (บาท)</span>
+        </div>
+        <sc-for list="{{ accounts }}" as="a" hint-placeholder-count="10">
+          <div onClick="{{ a.onClick }}" style="display:grid;grid-template-columns:3fr 0.8fr 0.8fr 1.2fr;gap:14px;padding:15px 22px;border-top:1px solid #F2F4F8;align-items:center;cursor:pointer" style-hover="background:#F8FAFC">
+            <a style="font-size:14px;font-weight:600;color:#2563EB;cursor:pointer">{{ a.name }}</a>
+            <span style="font-size:11px;font-weight:600;color:#6B7688;background:#F2F4F8;border-radius:6px;padding:2px 8px;width:max-content">{{ a.bu }}</span>
+            <span style="font-size:14px;text-align:center">{{ a.deals }}</span>
+            <span style="font-size:14px;font-weight:600;text-align:right;color:{{ a.valColor }}">{{ a.value }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- ============ ACCOUNT DETAIL (360) ============ -->
+    <sc-if value="{{ isDetail }}" hint-placeholder-val="{{ false }}">
+    <div>
+      <a onClick="{{ goAccounts }}" style="display:inline-flex;align-items:center;gap:7px;font-size:13.5px;font-weight:600;color:#6B7688;cursor:pointer;margin-bottom:16px">← กลับรายชื่อ</a>
+      <div style="background:#fff;border:1px solid #E4E8EE;border-radius:18px;padding:24px;margin-bottom:18px;display:flex;align-items:flex-start;justify-content:space-between;gap:20px">
+        <div>
+          <h1 style="margin:0;font-size:24px;font-weight:700;letter-spacing:-0.3px">ASEAN UNIVERSITY NETWORK</h1>
+          <p style="margin:8px 0 0;font-size:13.5px;color:#8A96A6">อุตสาหกรรม: การศึกษา · Tax ID: — · ผู้ดูแลหลัก: Natnicha Khaewkea</p>
+        </div>
+        <div style="display:flex;align-items:center;gap:18px;flex-shrink:0">
+          <div style="text-align:right"><div style="font-size:12px;color:#94A0B0">มูลค่ารวมทุกดีล</div><div style="font-size:22px;font-weight:700">—</div></div>
+          <button style="display:flex;align-items:center;gap:8px;height:44px;padding:0 18px;background:#2563EB;border:none;border-radius:12px;font-family:inherit;font-size:14px;font-weight:600;color:#fff;cursor:pointer">+ บันทึกการติดต่อ</button>
+        </div>
+      </div>
+
+      <div style="background:#fff;border:1px solid #E4E8EE;border-radius:18px;padding:22px;margin-bottom:18px">
+        <h2 style="margin:0 0 14px;font-size:15px;font-weight:700">ดีลทั้งหมด (1)</h2>
+        <div style="border:1px solid #F2F4F8;border-radius:12px;overflow:hidden">
+          <div style="display:grid;grid-template-columns:2.6fr 0.7fr 0.8fr 1.4fr 1fr 1fr;gap:12px;padding:12px 16px;background:#F8FAFC;font-size:11.5px;font-weight:600;color:#94A0B0">
+            <span>ดีล / บริการ</span><span>BU</span><span>สถานะ</span><span>Sale</span><span style="text-align:right">มูลค่า</span><span style="text-align:right">สร้างเมื่อ</span>
+          </div>
+          <div style="display:grid;grid-template-columns:2.6fr 0.7fr 0.8fr 1.4fr 1fr 1fr;gap:12px;padding:13px 16px;align-items:center">
+            <a style="font-size:13.5px;font-weight:600;color:#2563EB;cursor:pointer">ASEAN UNIVERSITY NETWORK</a>
+            <span style="font-size:11px;font-weight:600;color:#6B7688;background:#F2F4F8;border-radius:6px;padding:2px 8px;width:max-content">DS</span>
+            <span style="font-size:12px;font-weight:600;color:#5A6472;background:#EEF1F5;border-radius:7px;padding:3px 10px;width:max-content">Lead</span>
+            <span style="font-size:13px;color:#4A5568">Natnicha Khaewkea</span>
+            <span style="font-size:13.5px;text-align:right;color:#94A0B0">—</span>
+            <span style="font-size:12.5px;color:#8A96A6;text-align:right">8 ก.ค. 2569</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="background:#fff;border:1px solid #E4E8EE;border-radius:18px;padding:22px;margin-bottom:18px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <h2 style="margin:0;font-size:15px;font-weight:700">โอกาสขายไขว้ (Cross-sell)</h2>
+          <button style="height:36px;padding:0 15px;background:#fff;border:1px solid #E4E8EE;border-radius:10px;font-family:inherit;font-size:13px;font-weight:600;color:#4A5568;cursor:pointer">ส่งต่อ BU อื่น</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+          <span style="font-size:13px;color:#8A96A6;width:80px">ขายแล้ว:</span>
+          <span style="font-size:12px;font-weight:700;color:#178A55;background:#EBF7F0;border-radius:8px;padding:5px 13px">DS</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:13px;color:#8A96A6;width:80px">ยังไม่เคยขาย:</span>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <sc-for list="{{ crossSell }}" as="c" hint-placeholder-count="5">
+              <span style="font-size:12px;font-weight:600;color:#6B7688;background:#F2F4F8;border:1px dashed #D5DCE5;border-radius:8px;padding:5px 13px">{{ c }}</span>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px">
+        <div style="background:#fff;border:1px solid #E4E8EE;border-radius:18px;padding:22px">
+          <h2 style="margin:0 0 14px;font-size:15px;font-weight:700;border-left:3px solid #2563EB;padding-left:10px">ผู้ติดต่อ (1)</h2>
+          <div style="border:1px solid #F2F4F8;border-radius:12px;padding:16px">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+              <span style="font-size:14.5px;font-weight:600">คุณสุมาลี</span>
+              <span style="font-size:10.5px;font-weight:600;color:#2563EB;background:#EEF3FF;border-radius:6px;padding:2px 8px">หลัก</span>
+            </div>
+            <div style="font-size:13px;color:#6B7688">0891046808 · <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="8cfff9e1ede0e9e9a2feccedf9e2ffe9efa2e3feeb">[email&#160;protected]</a></div>
+          </div>
+        </div>
+        <div style="background:#fff;border:1px solid #E4E8EE;border-radius:18px;padding:22px">
+          <h2 style="margin:0 0 14px;font-size:15px;font-weight:700;border-left:3px solid #2563EB;padding-left:10px">ประวัติการติดต่อ &amp; งาน</h2>
+          <sc-for list="{{ timeline }}" as="e" hint-placeholder-count="2">
+            <div style="display:flex;gap:12px;padding:11px 0;border-top:1px solid #F2F4F8">
+              <span style="width:28px;height:28px;border-radius:8px;background:{{ e.bg }};color:{{ e.fg }};display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">{{ e.icon }}</span>
+              <div style="flex:1">
+                <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#8A96A6"><span>{{ e.date }}</span><span style="font-weight:600;color:{{ e.tagFg }};background:{{ e.tagBg }};border-radius:6px;padding:1px 7px">{{ e.tag }}</span>· {{ e.owner }}</div>
+                <div style="font-size:13.5px;font-weight:600;margin-top:3px">{{ e.title }}</div>
+                <div style="font-size:12.5px;color:#8A96A6">{{ e.note }}</div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="background:linear-gradient(120deg,#F3F6FF,#FFFFFF);border:1px solid #E4E8EE;border-radius:18px;padding:22px;display:flex;align-items:center;justify-content:space-between;gap:20px">
+        <div>
+          <h2 style="margin:0;font-size:15px;font-weight:700">สรุปด้วย AI</h2>
+          <p style="margin:6px 0 0;font-size:13px;color:#6B7688">ให้ AI สรุปภาพรวมลูกค้ารายนี้ — ทุกดีล + next action + โอกาสขายไขว้</p>
+        </div>
+        <button style="display:flex;align-items:center;gap:8px;height:42px;padding:0 18px;background:#2563EB;border:none;border-radius:12px;font-family:inherit;font-size:14px;font-weight:600;color:#fff;cursor:pointer;flex-shrink:0">✨ สรุป</button>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- ============ CARD BOX ============ -->
+    <sc-if value="{{ isCards }}" hint-placeholder-val="{{ false }}">
+    <div>
+      <h1 style="margin:0;font-size:26px;font-weight:700;letter-spacing:-0.4px">นามบัตร (Card Box)</h1>
+      <p style="margin:6px 0 20px;font-size:14px;color:#6B7688">เก็บนามบัตรที่ยังไม่เปิดเป็น Lead ไว้ก่อน · ระบบเช็คซ้ำกับฐานลูกค้าให้</p>
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+        <div style="display:flex;background:#fff;border:1px solid #E4E8EE;border-radius:11px;padding:3px">
+          <button style="height:34px;padding:0 15px;border:none;border-radius:8px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;background:#2563EB;color:#fff">ในกล่อง</button>
+          <button style="height:34px;padding:0 15px;border:none;border-radius:8px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;background:transparent;color:#6B7688">เปิด Lead แล้ว</button>
+          <button style="height:34px;padding:0 15px;border:none;border-radius:8px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;background:transparent;color:#6B7688">ทั้งหมด</button>
+        </div>
+        <div style="flex:1"></div>
+        <button style="display:flex;align-items:center;gap:8px;height:40px;padding:0 16px;background:#2563EB;border:none;border-radius:11px;font-family:inherit;font-size:13.5px;font-weight:600;color:#fff;cursor:pointer">สแกนนามบัตร</button>
+      </div>
+      <div style="background:#fff;border:1px dashed #D5DCE5;border-radius:18px;padding:64px;text-align:center">
+        <div style="width:60px;height:60px;border-radius:16px;background:#F2F4F8;display:flex;align-items:center;justify-content:center;margin:0 auto 18px;font-size:26px">🪪</div>
+        <div style="font-size:17px;font-weight:700">กล่องนามบัตรว่าง</div>
+        <div style="font-size:13.5px;color:#8A96A6;margin:6px 0 20px">สแกนนามบัตรเก็บไว้ก่อนได้ — ยังไม่ต้องเปิดเป็น Lead</div>
+        <button style="height:42px;padding:0 20px;background:#fff;border:1px solid #E4E8EE;border-radius:12px;font-family:inherit;font-size:14px;font-weight:600;color:#2563EB;cursor:pointer">สแกนนามบัตร</button>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- ============ TASKS ============ -->
+    <sc-if value="{{ isTasks }}" hint-placeholder-val="{{ false }}">
+    <div>
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:18px">
+        <div>
+          <h1 style="margin:0;font-size:26px;font-weight:700;letter-spacing:-0.4px">งาน (Tasks)</h1>
+          <p style="margin:6px 0 0;font-size:14px;color:#6B7688">งานติดตามลูกค้า จัดกลุ่มตามความด่วน + คำขออนุมัติเปลี่ยนสถานะ</p>
+        </div>
+        <button style="display:flex;align-items:center;gap:8px;height:40px;padding:0 16px;background:#2563EB;border:none;border-radius:11px;font-family:inherit;font-size:13.5px;font-weight:600;color:#fff;cursor:pointer">+ งานใหม่</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:18px">
+        <button style="height:36px;padding:0 15px;border:none;border-radius:10px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;background:#fff;border:1px solid #E4E8EE;color:#6B7688">งานของฉัน</button>
+        <button style="height:36px;padding:0 15px;border:none;border-radius:10px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;background:#2563EB;color:#fff">ทั้งหมด</button>
+        <button style="display:flex;align-items:center;gap:7px;height:36px;padding:0 15px;border-radius:10px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;background:#fff;border:1px solid #E4E8EE;color:#6B7688">รออนุมัติ<span style="background:#FCEBEA;color:#E4342E;font-size:11px;border-radius:6px;padding:1px 7px">2</span></button>
+      </div>
+
+      <!-- bulk bar -->
+      <sc-if value="{{ hasSel }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;align-items:center;gap:12px;background:#0F1729;color:#fff;border-radius:14px;padding:12px 18px;margin-bottom:16px">
+          <span style="font-size:14px;font-weight:600">เลือก {{ selCount }} งาน</span>
+          <div style="flex:1"></div>
+          <button style="height:34px;padding:0 14px;background:rgba(255,255,255,0.12);border:none;border-radius:9px;font-family:inherit;font-size:13px;font-weight:600;color:#fff;cursor:pointer">เลื่อนกำหนด</button>
+          <button style="height:34px;padding:0 14px;background:rgba(255,255,255,0.12);border:none;border-radius:9px;font-family:inherit;font-size:13px;font-weight:600;color:#fff;cursor:pointer">มอบหมาย</button>
+          <button style="height:34px;padding:0 14px;background:#fff;border:none;border-radius:9px;font-family:inherit;font-size:13px;font-weight:600;color:#0F1729;cursor:pointer">เปลี่ยนสถานะ</button>
+        </div>
+      </sc-if>
+
+      <sc-for list="{{ taskGroups }}" as="g" hint-placeholder-count="3">
+        <div style="margin-bottom:22px">
+          <div style="display:flex;align-items:center;gap:9px;margin-bottom:12px">
+            <span style="width:9px;height:9px;border-radius:50%;background:{{ g.dot }}"></span>
+            <h2 style="margin:0;font-size:15px;font-weight:700;color:{{ g.fg }}">{{ g.label }}</h2>
+            <span style="font-size:13px;font-weight:600;color:#94A0B0">{{ g.count }}</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <sc-for list="{{ g.tasks }}" as="t" hint-placeholder-count="3">
+              <div style="display:flex;align-items:center;gap:14px;background:#fff;border:1px solid {{ t.border }};border-radius:14px;padding:16px 18px">
+                <button onClick="{{ t.toggle }}" style="width:20px;height:20px;border-radius:6px;border:2px solid {{ t.checkBorder }};background:{{ t.checkBg }};cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px">{{ t.check }}</button>
+                <div style="flex:1;min-width:0">
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">
+                    <span style="font-size:10.5px;font-weight:600;color:#6B7688;background:#F2F4F8;border-radius:6px;padding:2px 8px">{{ t.bu }}</span>
+                    <span style="font-size:11px;font-weight:600;color:#5A6472;background:#EEF1F5;border-radius:6px;padding:2px 8px">{{ t.status }}</span>
+                    <sc-if value="{{ t.approval }}" hint-placeholder-val="{{ false }}"><span style="font-size:11px;font-weight:600;color:#B7791F;background:#FBF3E2;border-radius:6px;padding:2px 8px">ขออนุมัติ: เสร็จสิ้น</span></sc-if>
+                  </div>
+                  <div style="font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.name }}</div>
+                  <div style="font-size:12.5px;color:#8A96A6;margin-top:2px">{{ t.detail }} · {{ t.owner }} · {{ t.date }}</div>
+                </div>
+                <sc-if value="{{ t.approval }}" hint-placeholder-val="{{ false }}">
+                  <div style="display:flex;gap:8px;flex-shrink:0">
+                    <button style="height:36px;padding:0 16px;background:#2563EB;border:none;border-radius:10px;font-family:inherit;font-size:13px;font-weight:600;color:#fff;cursor:pointer">อนุมัติ</button>
+                    <button style="height:36px;padding:0 14px;background:#fff;border:1px solid #E4E8EE;border-radius:10px;font-family:inherit;font-size:13px;font-weight:600;color:#4A5568;cursor:pointer">ตรวจสอบ</button>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+    </sc-if>
+
+    <!-- ============ REFERRAL ============ -->
+    <sc-if value="{{ isReferral }}" hint-placeholder-val="{{ false }}">
+    <div>
+      <h1 style="margin:0;font-size:26px;font-weight:700;letter-spacing:-0.4px">ส่งต่อข้าม BU (Referral)</h1>
+      <p style="margin:6px 0 24px;font-size:14px;color:#6B7688">ส่งลูกค้าให้ BU อื่นขายต่อ + ติดตามผลการส่งต่อ</p>
+      <div style="background:#fff;border:1px dashed #D5DCE5;border-radius:18px;padding:64px;text-align:center">
+        <div style="width:60px;height:60px;border-radius:16px;background:#F2F4F8;display:flex;align-items:center;justify-content:center;margin:0 auto 18px;font-size:26px">🔀</div>
+        <div style="font-size:17px;font-weight:700">ยังไม่มีการส่งต่อข้าม BU</div>
+        <div style="font-size:13.5px;color:#8A96A6;margin-top:6px">ส่งต่อลูกค้าให้ BU อื่นได้จากหน้า Account 360°</div>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- ============ ADMIN: ORG ============ -->
+    <sc-if value="{{ isOrg }}" hint-placeholder-val="{{ false }}">
+    <div>
+      <h1 style="margin:0;font-size:26px;font-weight:700;letter-spacing:-0.4px">โครงสร้างองค์กร</h1>
+      <p style="margin:6px 0 20px;font-size:14px;color:#6B7688">บริษัท → แบรนด์ → แผนก (BU) — เพิ่ม/แก้ได้โดยไม่ต้องแก้โค้ด</p>
+      <div style="background:#fff;border:1px solid #E4E8EE;border-radius:18px;padding:22px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:14px">
+          <div style="width:48px;height:48px;border-radius:13px;background:#EEF3FF;color:#2563EB;display:flex;align-items:center;justify-content:center;font-size:22px">🏢</div>
+          <div><div style="font-size:17px;font-weight:700">บริษัท สยามราชธานี จำกัด (มหาชน)</div><div style="font-size:13px;color:#8A96A6">4 แบรนด์ · 6 แผนก (BU) · ใช้งานอยู่ 6</div></div>
+        </div>
+        <button style="height:42px;padding:0 18px;background:#2563EB;border:none;border-radius:12px;font-family:inherit;font-size:14px;font-weight:600;color:#fff;cursor:pointer">+ เพิ่มแผนก (BU)</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <sc-for list="{{ brands }}" as="b" hint-placeholder-count="4">
+          <div style="background:#fff;border:1px solid #E4E8EE;border-radius:16px;padding:20px">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+              <div style="width:40px;height:40px;border-radius:11px;background:{{ b.iconBg }};display:flex;align-items:center;justify-content:center;font-size:18px">{{ b.icon }}</div>
+              <div><div style="font-size:15.5px;font-weight:700">{{ b.name }}</div><div style="font-size:12px;color:#8A96A6">{{ b.code }} · {{ b.bu }}</div></div>
+            </div>
+            <sc-for list="{{ b.units }}" as="u" hint-placeholder-count="2">
+              <div style="display:flex;align-items:center;gap:8px;padding:11px 0;border-top:1px solid #F2F4F8">
+                <span style="font-size:14px;font-weight:600;flex:1">{{ u.name }}</span>
+                <span style="font-size:10.5px;font-weight:600;color:#2563EB;background:#EEF3FF;border-radius:6px;padding:2px 8px">{{ u.tag }}</span>
+                <span style="font-size:12px;color:#8A96A6;min-width:120px;text-align:right">{{ u.stat }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- ============ ADMIN: USERS ============ -->
+    <sc-if value="{{ isUsers }}" hint-placeholder-val="{{ false }}">
+    <div>
+      <h1 style="margin:0;font-size:26px;font-weight:700;letter-spacing:-0.4px">ผู้ใช้ &amp; สิทธิ์</h1>
+      <p style="margin:6px 0 20px;font-size:14px;color:#6B7688">จัดการบทบาท (role) และขอบเขต BU ที่แต่ละผู้ใช้มองเห็น · ผู้ใช้ทั้งหมด 38 คน</p>
+      <div style="background:#fff;border:1px solid #E4E8EE;border-radius:18px;overflow:hidden">
+        <div style="display:grid;grid-template-columns:1.6fr 2fr 0.7fr 1.2fr 1fr 0.9fr;gap:14px;padding:15px 22px;background:#F8FAFC;font-size:12px;font-weight:600;color:#94A0B0;letter-spacing:0.3px">
+          <span>ชื่อ–สกุล</span><span>อีเมล</span><span>แผนก</span><span>บทบาท</span><span>มองเห็น BU</span><span style="text-align:right">จัดการ</span>
+        </div>
+        <sc-for list="{{ users }}" as="u" hint-placeholder-count="8">
+          <div style="display:grid;grid-template-columns:1.6fr 2fr 0.7fr 1.2fr 1fr 0.9fr;gap:14px;padding:14px 22px;border-top:1px solid #F2F4F8;align-items:center">
+            <span style="font-size:14px;font-weight:600">{{ u.name }}</span>
+            <span style="font-size:13px;color:#2563EB">{{ u.email }}</span>
+            <span style="font-size:12px;color:#6B7688">{{ u.dept }}</span>
+            <span style="font-size:12px;font-weight:600;color:#5A6472;background:#EEF1F5;border-radius:7px;padding:3px 10px;width:max-content">{{ u.role }}</span>
+            <span style="font-size:11px;font-weight:600;color:#2563EB;background:#EEF3FF;border-radius:6px;padding:2px 8px;width:max-content">{{ u.buView }}</span>
+            <div style="text-align:right"><button style="height:32px;padding:0 12px;background:#fff;border:1px solid #E4E8EE;border-radius:9px;font-family:inherit;font-size:12.5px;font-weight:600;color:#4A5568;cursor:pointer">แก้ไขสิทธิ์</button></div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- ============ ADMIN: ROLES ============ -->
+    <sc-if value="{{ isRoles }}" hint-placeholder-val="{{ false }}">
+    <div>
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:20px">
+        <div><h1 style="margin:0;font-size:26px;font-weight:700;letter-spacing:-0.4px">บทบาท (Role) &amp; สิทธิ์</h1><p style="margin:6px 0 0;font-size:14px;color:#6B7688">สร้าง/แก้บทบาท และกำหนด permission ได้เอง (dynamic)</p></div>
+        <button style="height:40px;padding:0 16px;background:#2563EB;border:none;border-radius:11px;font-family:inherit;font-size:13.5px;font-weight:600;color:#fff;cursor:pointer">+ สร้างบทบาท</button>
+      </div>
+      <div style="background:#fff;border:1px solid #E4E8EE;border-radius:18px;overflow:hidden">
+        <div style="display:grid;grid-template-columns:1.6fr 1.4fr 0.8fr 0.7fr 0.7fr 0.8fr;gap:14px;padding:15px 22px;background:#F8FAFC;font-size:12px;font-weight:600;color:#94A0B0;letter-spacing:0.3px">
+          <span>บทบาท</span><span>code</span><span style="text-align:right">ระดับ</span><span style="text-align:right">ผู้ใช้</span><span style="text-align:right">สิทธิ์</span><span style="text-align:right">จัดการ</span>
+        </div>
+        <sc-for list="{{ roles }}" as="r" hint-placeholder-count="4">
+          <div style="display:grid;grid-template-columns:1.6fr 1.4fr 0.8fr 0.7fr 0.7fr 0.8fr;gap:14px;padding:15px 22px;border-top:1px solid #F2F4F8;align-items:center">
+            <span style="display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600">{{ r.name }}<span style="font-size:10.5px;font-weight:600;color:#8A96A6;background:#F2F4F8;border-radius:6px;padding:2px 7px">system</span></span>
+            <span style="font-size:13px;color:#6B7688;font-family:'IBM Plex Sans',monospace">{{ r.code }}</span>
+            <span style="font-size:14px;font-weight:600;text-align:right">{{ r.level }}</span>
+            <span style="font-size:14px;text-align:right">{{ r.users }}</span>
+            <span style="font-size:14px;text-align:right">{{ r.perms }}</span>
+            <div style="text-align:right"><button style="height:32px;padding:0 14px;background:#fff;border:1px solid #E4E8EE;border-radius:9px;font-family:inherit;font-size:12.5px;font-weight:600;color:#4A5568;cursor:pointer">แก้ไข</button></div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- ============ ADMIN: SERVICES ============ -->
+    <sc-if value="{{ isServices }}" hint-placeholder-val="{{ false }}">
+    <div>
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:20px">
+        <div><h1 style="margin:0;font-size:26px;font-weight:700;letter-spacing:-0.4px">บริการ (Services)</h1><p style="margin:6px 0 0;font-size:14px;color:#6B7688">จัดการรายการบริการของแต่ละ BU — ใช้ในฟอร์มขาย/ใบเสนอราคา</p></div>
+        <button style="height:40px;padding:0 16px;background:#2563EB;border:none;border-radius:11px;font-family:inherit;font-size:13.5px;font-weight:600;color:#fff;cursor:pointer">+ เพิ่มบริการใหม่</button>
+      </div>
+      <sc-for list="{{ services }}" as="s" hint-placeholder-count="2">
+        <div style="background:#fff;border:1px solid #E4E8EE;border-radius:18px;padding:22px;margin-bottom:16px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px"><span style="font-size:16px">📦</span><span style="font-size:15.5px;font-weight:700">{{ s.bu }}</span><span style="font-size:12px;color:#8A96A6">{{ s.n }} บริการ</span></div>
+          <sc-for list="{{ s.items }}" as="i" hint-placeholder-count="4">
+            <div style="display:flex;align-items:center;gap:12px;padding:13px 0;border-top:1px solid #F2F4F8">
+              <span style="font-size:14px;font-weight:600">{{ i.name }}</span>
+              <span style="font-size:12.5px;color:#8A96A6">{{ i.meta }}</span>
+              <div style="flex:1"></div>
+              <button style="width:32px;height:32px;border-radius:9px;background:#fff;border:1px solid #E4E8EE;cursor:pointer;color:#6B7688" aria-label="แก้ไข">✎</button>
+            </div>
+          </sc-for>
+        </div>
+      </sc-for>
+    </div>
+    </sc-if>
+
+    <!-- ============ ADMIN: PICKLIST ============ -->
+    <sc-if value="{{ isPicklist }}" hint-placeholder-val="{{ false }}">
+    <div>
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:20px">
+        <div><h1 style="margin:0;font-size:26px;font-weight:700;letter-spacing:-0.4px">ตัวเลือก (Picklist)</h1><p style="margin:6px 0 0;font-size:14px;color:#6B7688">จัดการค่าตัวเลือก dynamic เช่น ช่องทางติดต่อ / สถานะงาน — ใช้ร่วมทั้งระบบ</p></div>
+        <button style="height:40px;padding:0 16px;background:#fff;border:1px solid #E4E8EE;border-radius:11px;font-family:inherit;font-size:13.5px;font-weight:600;color:#4A5568;cursor:pointer">+ เพิ่มชุดตัวเลือกใหม่</button>
+      </div>
+      <div style="background:#fff;border:1px solid #E4E8EE;border-radius:18px;padding:22px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><span style="font-size:15.5px;font-weight:700">ช่องทางติดต่อ</span><span style="font-size:11px;color:#6B7688;background:#F2F4F8;border-radius:6px;padding:2px 8px;font-family:monospace">contact_channel</span><span style="font-size:12px;color:#8A96A6">5 ตัวเลือก</span></div>
+        <sc-for list="{{ picklist }}" as="p" hint-placeholder-count="5">
+          <div style="display:flex;align-items:center;gap:12px;padding:13px 0;border-top:1px solid #F2F4F8">
+            <span style="font-size:12px;color:#94A0B0;width:16px">{{ p.n }}</span>
+            <span style="font-size:14px;font-weight:600">{{ p.label }}</span>
+            <span style="font-size:11px;color:#8A96A6;background:#F2F4F8;border-radius:6px;padding:2px 8px;font-family:monospace">{{ p.code }}</span>
+            <div style="flex:1"></div>
+            <button style="width:32px;height:32px;border-radius:9px;background:#fff;border:1px solid #E4E8EE;cursor:pointer;color:#6B7688" aria-label="แก้ไข">✎</button>
+            <button style="height:32px;padding:0 12px;border-radius:9px;background:#fff;border:1px solid #E4E8EE;cursor:pointer;color:#6B7688;font-family:inherit;font-size:12.5px;font-weight:600">ปิด</button>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- ============ ADMIN: CUSTOM FIELD ============ -->
+    <sc-if value="{{ isCustom }}" hint-placeholder-val="{{ false }}">
+    <div>
+      <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:20px">
+        <div><h1 style="margin:0;font-size:26px;font-weight:700;letter-spacing:-0.4px">ฟิลด์เพิ่มเติม (Custom Field)</h1><p style="margin:6px 0 0;font-size:14px;color:#6B7688">นิยามฟิลด์ของฟอร์มเองได้ — ฟอร์มเดียวรองรับทุก BU</p></div>
+        <button style="height:40px;padding:0 16px;background:#2563EB;border:none;border-radius:11px;font-family:inherit;font-size:13.5px;font-weight:600;color:#fff;cursor:pointer">+ สร้างฟิลด์</button>
+      </div>
+      <div style="background:#fff;border:1px solid #E4E8EE;border-radius:18px;padding:22px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><span style="font-size:15.5px;font-weight:700">ฟอร์ม ดีล (Opportunity)</span><span style="font-size:11px;color:#6B7688;background:#F2F4F8;border-radius:6px;padding:2px 8px;font-family:monospace">opportunity</span><span style="font-size:12px;color:#8A96A6">1 ฟิลด์</span></div>
+        <div style="display:flex;align-items:center;gap:12px;padding:14px 0;border-top:1px solid #F2F4F8">
+          <span style="font-size:14px;font-weight:600">คู่แข่งที่เจอ</span>
+          <span style="font-size:11px;color:#6B7688;background:#F2F4F8;border-radius:6px;padding:2px 8px;font-family:monospace">text</span>
+          <div style="flex:1"></div>
+          <button style="height:32px;padding:0 14px;border-radius:9px;background:#fff;border:1px solid #E4E8EE;cursor:pointer;color:#4A5568;font-family:inherit;font-size:12.5px;font-weight:600">แก้ไข</button>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- ============ ADMIN: FLAGS ============ -->
+    <sc-if value="{{ isFlags }}" hint-placeholder-val="{{ false }}">
+    <div>
+      <h1 style="margin:0;font-size:26px;font-weight:700;letter-spacing:-0.4px">Feature Flags (Cutover)</h1>
+      <p style="margin:6px 0 20px;font-size:14px;color:#6B7688">เปิดใช้แอปใหม่/ฟีเจอร์ทีละผู้ใช้ — ค่าตามผู้ใช้จะแทนค่าเริ่มต้นของธง</p>
+      <div style="background:#fff;border:1px solid #E4E8EE;border-radius:18px;padding:22px">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px">
+          <div><div style="display:flex;align-items:center;gap:9px"><span style="font-size:15px">🚩</span><span style="font-size:15.5px;font-weight:700">เข้าใช้ SO CRM ใหม่</span><span style="font-size:11px;color:#6B7688;background:#F2F4F8;border-radius:6px;padding:2px 8px;font-family:monospace">new_crm_access</span></div><div style="font-size:13px;color:#8A96A6;margin-top:6px">อนุญาตให้ผู้ใช้เข้าระบบ CRM ใหม่ (ช่วง cutover ทีละคน)</div></div>
+          <span style="font-size:12px;font-weight:600;color:#6B7688;background:#EEF1F5;border-radius:8px;padding:6px 12px">ค่าเริ่มต้น: ปิด</span>
+        </div>
+        <div style="background:#F8FAFC;border:1px solid #EEF1F5;border-radius:12px;padding:16px;display:flex;align-items:center;justify-content:space-between">
+          <div><div style="font-size:14px;font-weight:600">เปิด/ปิดเฉพาะผู้ใช้ (0)</div><div style="font-size:12.5px;color:#8A96A6;margin-top:3px">ยังไม่มี override — ทุกคนใช้ค่าเริ่มต้น</div></div>
+          <button style="height:38px;padding:0 15px;background:#fff;border:1px solid #E4E8EE;border-radius:10px;font-family:inherit;font-size:13px;font-weight:600;color:#4A5568;cursor:pointer">+ เพิ่มผู้ใช้</button>
+        </div>
+      </div>
+    </div>
+    </sc-if>
+
+    <!-- ============ ADMIN: AI AUDIT ============ -->
+    <sc-if value="{{ isAudit }}" hint-placeholder-val="{{ false }}">
+    <div>
+      <h1 style="margin:0;font-size:26px;font-weight:700;letter-spacing:-0.4px">บันทึกการใช้งาน AI (Audit)</h1>
+      <p style="margin:6px 0 18px;font-size:14px;color:#6B7688">ประวัติการเรียก AI ทุกครั้ง (สรุป/OCR นามบัตร/ค้นหาอัจฉริยะ) — ใครใช้ เมื่อไหร่ สำเร็จ/ล้มเหลว</p>
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <sc-for list="{{ auditTabs }}" as="t" hint-placeholder-count="4">
+          <button style="height:34px;padding:0 15px;border:none;border-radius:9px;font-family:inherit;font-size:13px;font-weight:600;cursor:pointer;background:{{ t.bg }};color:{{ t.fg }}">{{ t.label }}</button>
+        </sc-for>
+      </div>
+      <div style="background:#fff;border:1px solid #E4E8EE;border-radius:18px;overflow:hidden">
+        <div style="display:grid;grid-template-columns:1.2fr 1.1fr 1.6fr 1.8fr 0.9fr 0.5fr;gap:14px;padding:15px 22px;background:#F8FAFC;font-size:12px;font-weight:600;color:#94A0B0">
+          <span>เวลา</span><span>ฟีเจอร์</span><span>ผู้ใช้</span><span>รายละเอียด</span><span style="text-align:right">ใช้เวลา (ms)</span><span style="text-align:center">สถานะ</span>
+        </div>
+        <sc-for list="{{ audit }}" as="a" hint-placeholder-count="8">
+          <div style="display:grid;grid-template-columns:1.2fr 1.1fr 1.6fr 1.8fr 0.9fr 0.5fr;gap:14px;padding:13px 22px;border-top:1px solid #F2F4F8;align-items:center">
+            <span style="font-size:12.5px;color:#6B7688">{{ a.time }}</span>
+            <span style="font-size:12px;font-weight:600;color:#5A6472;background:#EEF1F5;border-radius:6px;padding:2px 9px;width:max-content">{{ a.feature }}</span>
+            <span style="font-size:13px">{{ a.user }}</span>
+            <span style="font-size:12.5px;color:#2563EB">{{ a.detail }}</span>
+            <span style="font-size:13px;font-weight:600;text-align:right">{{ a.ms }}</span>
+            <span style="text-align:center;color:#178A55">✓</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+    </sc-if>
+
+  </main>
+</div>
+</x-dc>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { screen: 'dash', adminOpen: false, cmdOpen: false, filtersOpen: false, pipeView: 'table', sel: {} };
+
+  set(screen){ this.setState({ screen, adminOpen: false }); }
+  toggleSel(id){ this.setState(s => { const sel = {...s.sel}; if(sel[id]) delete sel[id]; else sel[id]=true; return { sel }; }); }
+
+  renderVals(){
+    const s = this.state;
+    const blue = '#2563EB';
+    const navDef = [
+      ['dash','ภาพรวม','▦'], ['pipe','ดีล','◎'], ['accounts','ลูกค้า','👤'],
+      ['cards','นามบัตร','🪪'], ['tasks','งาน','✔'], ['referral','ส่งต่อ BU','🔀']
+    ];
+    const dashScreens = ['dash'];
+    const nav = navDef.map(([id,label,icon]) => {
+      const active = (id==='accounts' && s.screen==='detail') ? true : s.screen===id;
+      return { label, icon, onClick: () => this.set(id),
+        bg: active ? blue : 'transparent', fg: active ? '#fff' : '#4A5568' };
+    });
+
+    const adminScreens = ['org','users','roles','services','picklist','custom','flags','audit'];
+    const adminActive = adminScreens.includes(s.screen);
+    const adminDef = [
+      ['org','🏢','โครงสร้างองค์กร'], ['users','👥','ผู้ใช้ & สิทธิ์'], ['roles','🛡','บทบาท & สิทธิ์'],
+      ['services','📦','บริการ (Services)'], ['picklist','☰','ตัวเลือก (Picklist)'],
+      ['custom','⊞','ฟิลด์เพิ่มเติม'], ['flags','🚩','Feature Flags'], ['audit','📊','บันทึกการใช้ AI']
+    ];
+    const adminItems = adminDef.map(([id,icon,label]) => ({ icon, label, onClick: () => this.set(id), bg: s.screen===id ? '#F2F4F8' : 'transparent' }));
+
+    const is = k => s.screen===k;
+
+    // ---- Dashboard data ----
+    const kpis = [
+      { label:'องค์กร', value:'612', sub:'ทุก BU' },
+      { label:'ดีลที่เปิดอยู่', value:'486', sub:'จาก 679 ดีล' },
+      { label:'มูลค่า PIPELINE', value:'164.51 MB', sub:'ดีลที่ยังไม่ปิด' },
+      { label:'เฉลี่ย/ดีลเปิด', value:'0.34 MB', sub:'ขนาดดีลเฉลี่ย' },
+      { label:'WIN RATE', value:'25%', sub:'จาก 193 ตัดสินแล้ว' },
+      { label:'ได้งาน (PO)', value:'43.38 MB', sub:'49 ดีล' },
+    ];
+    const filterFields = [
+      { label:'BU / แผนก', value:'ทุก BU' }, { label:'ที่มา (Lead source)', value:'ทุกที่มา' },
+      { label:'Sale ผู้ดูแล', value:'ทุกคน' }, { label:'บริการ', value:'ทุกบริการ' },
+    ];
+    const dashTasks = [
+      { name:'บริษัท แอลจี อิเล็คทรอนิกส์ (ประเทศไทย) จำกัด', detail:'นำเสนอบริการ', owner:'Benyapha', bu:'LBA', due:'เกินกำหนด 6 ม.ค.', dueColor:'#E4342E', dot:'#E4342E' },
+      { name:'บริษัท เบอร์โก จำกัด', detail:'ติดตามงาน', owner:'Benyapha', bu:'LBA', due:'เกินกำหนด 15 ม.ค.', dueColor:'#E4342E', dot:'#E4342E' },
+      { name:'บริษัท ที.ไอ.ที.ทาวเวอร์ จำกัด', detail:'นำเสนอบริการ', owner:'Benyapha', bu:'LBA', due:'เกินกำหนด 27 ม.ค.', dueColor:'#E4342E', dot:'#E4342E' },
+      { name:'บริษัท กรุงไทยอาหาร จำกัด (มหาชน)', detail:'นำเสนอบริการ', owner:'Benyapha', bu:'LBA', due:'วันนี้', dueColor:'#B7791F', dot:'#E8A317' },
+    ];
+    const funnel = [
+      { label:'ลีด', count:'405', mb:'11.89 MB', width:'100%', color:'#5A6472' },
+      { label:'มีศักยภาพ', count:'63', mb:'64.5 MB', width:'40%', color:'#E8A317' },
+      { label:'คาดหวัง', count:'14', mb:'42.34 MB', width:'22%', color:'#EA7A2B' },
+      { label:'กำลังเจรจา', count:'4', mb:'45.78 MB', width:'12%', color:'#8B5CF6' },
+    ];
+    const topSales = [
+      { rank:'1', name:'Benyapha Thunyacharoen', mb:'9.97 MB', deals:'7', rankBg:'#FBF0D8', rankFg:'#B7791F' },
+      { rank:'2', name:'Apinya Songkramrod', mb:'9.81 MB', deals:'5', rankBg:'#EEF1F5', rankFg:'#6B7688' },
+      { rank:'3', name:'Tharinee', mb:'8.08 MB', deals:'2', rankBg:'#F5E8DD', rankFg:'#B06A2C' },
+      { rank:'4', name:'Komsan Sukmak', mb:'7.15 MB', deals:'9', rankBg:'#EEF1F5', rankFg:'#6B7688' },
+      { rank:'5', name:'Chananphorn Kaenpromma', mb:'2.99 MB', deals:'7', rankBg:'#EEF1F5', rankFg:'#6B7688' },
+    ];
+    const cust = [['#5A6472','ลีด','405','60%'],['#E8A317','มีศักยภาพ','63','9%'],['#EA7A2B','คาดหวัง','14','2%'],['#8B5CF6','กำลังเจรจา','4','1%'],['#22A565','ได้งาน (PO)','49','7%'],['#E4342E','ปิด/แพ้','144','21%']];
+    const val = [['#5A6472','ลีด','11.89 MB','5%'],['#E8A317','มีศักยภาพ','64.5 MB','25%'],['#EA7A2B','คาดหวัง','42.34 MB','17%'],['#8B5CF6','กำลังเจรจา','45.78 MB','18%'],['#22A565','ได้งาน','43.38 MB','17%'],['#E4342E','ปิด/แพ้','48.51 MB','19%']];
+    const mkGrad = arr => { let acc=0; const stops=arr.map(a=>{const p=parseFloat(a[3]); const seg=`${a[0]} ${acc}% ${acc+p}%`; acc+=p; return seg;}); return `conic-gradient(${stops.join(',')})`; };
+    const mkRows = arr => arr.map(a=>({color:a[0],label:a[1],value:a[2],pct:a[3]}));
+    const donuts = [
+      { title:'CUSTOMERS · จำนวนดีลแต่ละสถานะ', total:'679', gradient:mkGrad(cust), rows:mkRows(cust) },
+      { title:'VALUE · มูลค่าของดีลแต่ละสถานะ', total:'256.4 MB', gradient:mkGrad(val), rows:mkRows(val) },
+    ];
+
+    // ---- Pipeline ----
+    const stages = [
+      { label:'ทั้งหมด', count:'679', bg:'#EEF3FF', border:'#D6E2FF', dot:blue, fg:'#1D4FB8' },
+      { label:'ลีด', count:'405', bg:'#F2F4F8', border:'#E4E8EE', dot:'#5A6472', fg:'#4A5568' },
+      { label:'มีศักยภาพ', count:'63', bg:'#FBF3E2', border:'#F3E4C4', dot:'#E8A317', fg:'#B7791F' },
+      { label:'คาดหวัง', count:'14', bg:'#FBEEE2', border:'#F3DCC4', dot:'#EA7A2B', fg:'#B06A2C' },
+      { label:'กำลังเจรจา', count:'4', bg:'#F1EBFB', border:'#E1D4F5', dot:'#8B5CF6', fg:'#6D3FD1' },
+      { label:'ได้งาน (PO)', count:'49', bg:'#EBF7F0', border:'#CDEBD9', dot:'#22A565', fg:'#178A55' },
+      { label:'ปิด/แพ้', count:'144', bg:'#FCEBEA', border:'#F5D2CF', dot:'#E4342E', fg:'#C42821' },
+    ];
+    const st = { Lead:['#5A6472','#EEF1F5'], Close:['#C42821','#FCEBEA'] };
+    const dealRows = [
+      ['คอนโด เมโทรโพลิส','LM','Lead',0,'Tharinee'],
+      ['บริษัท แอลลี่ โลจิสติกส์ พร็อพเพอร์ตี้ (ประเทศไทย) จำกัด','CR','Lead',0,'Chananphorn Kaenpromma'],
+      ['บริษัท เอโอ สตีล จำกัด','CR','Lead',0,'Chananphorn Kaenpromma'],
+      ['โคเรียน เรจิสเตอร์','LBD','Close',0,'ณัฏฐพร อยู่สนิท'],
+      ['ธนาคารแห่งประเทศไทย','LBA','Lead',0,'Komsan Sukmak'],
+      ['โรงพยาบาลวิมุต เทพธารินทร์','SN','Lead',300000,'Apinya Songkramrod'],
+      ['บริษัท เอชที รีโวลูชั่น จำกัด','SN','Lead',59880,'Apinya Songkramrod'],
+      ['บริษัท รวมโชคพัฒนา (พัทยา) จำกัด','SN','Lead',120000,'Apinya Songkramrod'],
+    ];
+    const fmtBaht = v => (!v) ? '—' : v.toLocaleString('en-US') + ' บาท';
+    const deals = dealRows.map(([name,bu,status,v,sale]) => ({ name,bu,status,sale, value: fmtBaht(v), stColor: st[status][0], stBg: st[status][1] }));
+    const board = [
+      { label:'ลีด', count:'405', dot:'#5A6472', fg:'#4A5568', cards:[
+        { name:'คอนโด เมโทรโพลิส', bu:'LM', value:'—' },
+        { name:'ธนาคารแห่งประเทศไทย', bu:'LBA', value:'—' },
+        { name:'โรงพยาบาลวิมุต เทพธารินทร์', bu:'SN', value:'300,000' } ] },
+      { label:'มีศักยภาพ', count:'63', dot:'#E8A317', fg:'#B7791F', cards:[
+        { name:'บริษัท รวมโชคพัฒนา (พัทยา) จำกัด', bu:'SN', value:'120,000' },
+        { name:'บริษัท เอชที รีโวลูชั่น จำกัด', bu:'SN', value:'59,880' } ] },
+      { label:'คาดหวัง', count:'14', dot:'#EA7A2B', fg:'#B06A2C', cards:[
+        { name:'บริษัท จาร์ดีน เอ็นจิเนียริ่ง จำกัด', bu:'LBA', value:'—' } ] },
+      { label:'กำลังเจรจา', count:'4', dot:'#8B5CF6', fg:'#6D3FD1', cards:[
+        { name:'บริษัท เอส.อาร์.ไทร จำกัด', bu:'CR', value:'450,000' } ] },
+    ];
+
+    // ---- Accounts ----
+    const acRows = [
+      ['ASEAN UNIVERSITY NETWORK','DS','1',0],['BGC','LBA','1',0],
+      ['BUGATTI FREIGHT INT\'L (THAILAND) CO., LTD.','LBD','1',0],['Doosan','LBD','1',0],
+      ['DSG International (Thailand) PLC','LBA','2',0],['Grandphoenix','LM','1',0],
+      ['H75 Design build','LM','1',0],['JSSR','LBD','1',0],['J&T express','LBA','1',0],['Kustomk','LM','1',0],
+    ];
+    const accounts = acRows.map(([name,bu,deals,v]) => ({ name,bu,deals, value: fmtBaht(v), valColor:(!v)?'#94A0B0':'#0F1729', onClick: () => this.set('detail') }));
+    const crossSell = ['LBD','LBA','CR','LM','SN'];
+    const timeline = [
+      { icon:'📋', bg:'#FBF3E2', fg:'#B7791F', date:'9 ก.ค. 2569', tag:'งาน · รอดำเนินการ', tagFg:'#B7791F', tagBg:'#FBF3E2', owner:'Natnicha', title:'นำเสนอบริการ', note:'' },
+      { icon:'✉', bg:'#EEF3FF', fg:'#2563EB', date:'8 ก.ค. 2569', tag:'ติดต่อ · email', tagFg:'#2563EB', tagBg:'#EEF3FF', owner:'Natnicha', title:'นำเสนอบริการ', note:'บันทึกอัตโนมัติจากการสร้างลูกค้าใหม่' },
+    ];
+
+    // ---- Tasks ----
+    const sel = s.sel;
+    const mkTask = (id,bu,status,name,detail,owner,date,approval) => ({
+      id,bu,status,name,detail,owner,date,approval,
+      toggle:()=>this.toggleSel(id),
+      check: sel[id] ? '✓' : '', checkBg: sel[id]?blue:'#fff', checkBorder: sel[id]?blue:'#CBD2DC',
+      border: approval ? '#F3E4C4' : '#E4E8EE'
+    });
+    const taskGroups = [
+      { label:'เกินกำหนด', count:'171', dot:'#E4342E', fg:'#C42821', tasks:[
+        mkTask('t1','LBA','รอดำเนินการ','บริษัท แอลจี อิเล็คทรอนิกส์ (ประเทศไทย) จำกัด','นำเสนอบริการ','Benyapha','6 ม.ค. 2569',false),
+        mkTask('t2','LBA','รอดำเนินการ','บริษัท เบอร์โก จำกัด','ติดตามงาน','Benyapha','15 ม.ค. 2569',false),
+        mkTask('t3','LBA','รอดำเนินการ','บริษัท หลักทรัพย์จัดการกองทุนเฟิร์ส พลัส (ประเทศไทย) จำกัด','นำเสนอบริการ','Benyapha','30 ม.ค. 2569',true),
+      ]},
+      { label:'รออนุมัติ', count:'2', dot:'#E8A317', fg:'#B7791F', tasks:[
+        mkTask('t4','LBA','รอดำเนินการ','บริษัท บริหารสินทรัพย์ กรุงเทพพาณิชย์ จำกัด (มหาชน)','นำเสนอบริการ','Komsan','20 มี.ค. 2569',true),
+      ]},
+      { label:'สัปดาห์นี้', count:'8', dot:'#22A565', fg:'#178A55', tasks:[
+        mkTask('t5','SN','รอดำเนินการ','โรงพยาบาลวิมุต เทพธารินทร์','โทรติดตาม','Apinya','16 ก.ค. 2569',false),
+        mkTask('t6','DS','รอดำเนินการ','ASEAN UNIVERSITY NETWORK','นำเสนอบริการ','Natnicha','18 ก.ค. 2569',false),
+      ]},
+    ];
+    const selCount = Object.keys(sel).length;
+
+    // ---- Admin data ----
+    const brands = [
+      { name:'เอสโอ พีเพิล', code:'SO_PEOPLE', bu:'2 BU', icon:'👥', iconBg:'#EEF3FF', units:[
+        { name:'Outsource คนขับ/บริการ', tag:'LBD', stat:'143 ดีล · 9 ผู้ใช้' },
+        { name:'Outsource บุคลากร (ธุรการ/ช่าง/IT)', tag:'LBA', stat:'195 ดีล · 6 ผู้ใช้' } ] },
+      { name:'เอสโอ วีล', code:'SO_WHEEL', bu:'1 BU', icon:'🚗', iconBg:'#F2F4F8', units:[
+        { name:'รถเช่า', tag:'CR', stat:'107 ดีล · 8 ผู้ใช้' } ] },
+      { name:'เอสโอ กรีน', code:'SO_GREEN', bu:'1 BU', icon:'🌿', iconBg:'#EBF7F0', units:[
+        { name:'ดูแลภูมิทัศน์', tag:'LM', stat:'98 ดีล · 4 ผู้ใช้' } ] },
+      { name:'เอสโอ เน็กซ์', code:'SO_NEXT', bu:'2 BU', icon:'🔩', iconBg:'#F1EBFB', units:[
+        { name:'Platform/SaaS', tag:'SN', stat:'63 ดีล · 4 ผู้ใช้' },
+        { name:'Data/BPO/OCR', tag:'DS', stat:'73 ดีล · 7 ผู้ใช้' } ] },
+    ];
+    const usrRows = [
+      ['Aditep Phumkasem','Aditep.p@siamraj.com','DS','ดิจิทัลมาร์เก็ตติ้ง','DS'],
+      ['Admin CR','admin.cr@socrm.com','CR','ผู้ดูแลระบบ','CR'],
+      ['Admin DS','admin.ds@socrm.com','DS','ผู้ดูแลระบบ','DS'],
+      ['Admin LBA','admin.lba@socrm.com','LBA','ผู้ดูแลระบบ','LBA'],
+      ['Admin LBD','admin.lbd@socrm.com','LBD','ผู้ดูแลระบบ','LBD'],
+      ['Admin LM','admin.lm@socrm.com','LM','ผู้ดูแลระบบ','LM'],
+      ['Admin SN','admin.sn@socrm.com','SN','ผู้ดูแลระบบ','SN'],
+      ['Apinya Songkramrod','apinya.s@siamraj.com','SN','ผู้จัดการ','SN'],
+    ];
+    const users = usrRows.map(([name,email,dept,role,buView]) => ({name,email,dept,role,buView}));
+    const roles = [
+      { name:'ผู้ดูแลระบบ', code:'admin', level:'800', users:'15', perms:'32' },
+      { name:'ผู้จัดการ', code:'manager', level:'600', users:'4', perms:'23' },
+      { name:'ดิจิทัลมาร์เก็ตติ้ง', code:'digital_marketing', level:'500', users:'2', perms:'9' },
+      { name:'พนักงานขาย', code:'user', level:'400', users:'17', perms:'17' },
+    ];
+    const services = [
+      { bu:'CR', n:4, items:[
+        {name:'รถเช่าระยะยาว',meta:'vehicles · monthly · ต้องระบุจำนวน'},
+        {name:'รถเช่าระยะสั้น',meta:'vehicles · monthly · ต้องระบุจำนวน'},
+        {name:'รถดัดแปลง',meta:'vehicles · monthly · ต้องระบุจำนวน'},
+        {name:'รถตู้',meta:'vehicles · monthly · ต้องระบุจำนวน'} ] },
+      { bu:'DS', n:3, items:[
+        {name:'คลังเก็บเอกสาร',meta:'boxes · per_project · ต้องระบุจำนวน'},
+        {name:'บริการ BPO',meta:'people · per_project · ต้องระบุจำนวน'},
+        {name:'บริการ OCR',meta:'pages · per_project · ต้องระบุจำนวน'} ] },
+    ];
+    const picklist = [
+      { n:'1', label:'โทร', code:'โทร' }, { n:'2', label:'อีเมล', code:'email' },
+      { n:'3', label:'LINE', code:'line' }, { n:'4', label:'พบหน้า', code:'พบหน้า' },
+      { n:'5', label:'Video call', code:'vdo call' },
+    ];
+    const auditTabs = [
+      { label:'ทั้งหมด', bg:blue, fg:'#fff' }, { label:'lead_analysis (11)', bg:'#fff', fg:'#4A5568' },
+      { label:'สรุป Account (1)', bg:'#fff', fg:'#4A5568' }, { label:'OCR นามบัตร (3)', bg:'#fff', fg:'#4A5568' },
+    ];
+    const audit = [
+      { time:'14/7/69 16:05', feature:'lead_analysis', user:'Apinya Songkramrod', detail:'ดีล #739', ms:'72,844' },
+      { time:'14/7/69 11:00', feature:'OCR นามบัตร', user:'Chinnapat Jadcharoen', detail:'type=image/jpeg', ms:'39,311' },
+      { time:'14/7/69 10:55', feature:'lead_analysis', user:'Chinnapat Jadcharoen', detail:'ดีล #697', ms:'7,401' },
+      { time:'13/7/69 19:44', feature:'สรุป Account', user:'Chinnapat Jadcharoen', detail:'account #75', ms:'5,001' },
+      { time:'13/7/69 15:11', feature:'OCR นามบัตร', user:'Chinnapat Jadcharoen', detail:'type=image/heic', ms:'9,784' },
+      { time:'13/7/69 14:54', feature:'lead_analysis', user:'Chinnapat Jadcharoen', detail:'ดีล #722', ms:'7,807' },
+      { time:'13/7/69 08:21', feature:'lead_analysis', user:'Chinnapat Jadcharoen', detail:'ดีล #443', ms:'6,485' },
+      { time:'13/7/69 00:55', feature:'ค้นหาอัจฉริยะ', user:'Chinnapat Jadcharoen', detail:'lead คุณภาพของ DS', ms:'3,879' },
+    ];
+
+    return {
+      nav, adminItems,
+      adminOpen: s.adminOpen, toggleAdmin: () => this.setState(x=>({adminOpen:!x.adminOpen})),
+      adminBg: adminActive ? blue : 'transparent', adminFg: adminActive ? '#fff' : '#4A5568',
+      cmdOpen: s.cmdOpen, openCmd: () => this.setState({cmdOpen:true}), closeCmd: () => this.setState({cmdOpen:false}),
+      aiSuggest: ['ลูกค้า CR ที่ได้ PO มูลค่าเกิน 1 ล้าน','ดีล LBA ที่กำลังเจรจา','lead คุณภาพของ DS'],
+      filtersOpen: s.filtersOpen, toggleFilters: () => this.setState(x=>({filtersOpen:!x.filtersOpen})),
+      goTasks:()=>this.set('tasks'), goPipe:()=>this.set('pipe'), goAccounts:()=>this.set('accounts'),
+      // screen flags
+      isDash:is('dash'), isPipe:is('pipe'), isAccounts:is('accounts'), isDetail:is('detail'),
+      isCards:is('cards'), isTasks:is('tasks'), isReferral:is('referral'),
+      isOrg:is('org'), isUsers:is('users'), isRoles:is('roles'), isServices:is('services'),
+      isPicklist:is('picklist'), isCustom:is('custom'), isFlags:is('flags'), isAudit:is('audit'),
+      // dashboard
+      kpis, filterFields, dashTasks, funnel, topSales, donuts,
+      // pipeline
+      stages, deals, board,
+      setPipeTable:()=>this.setState({pipeView:'table'}), setPipeBoard:()=>this.setState({pipeView:'board'}),
+      pipeIsTable: s.pipeView==='table', pipeIsBoard: s.pipeView==='board',
+      pipeTableBg: s.pipeView==='table'?blue:'transparent', pipeTableFg: s.pipeView==='table'?'#fff':'#6B7688',
+      pipeBoardBg: s.pipeView==='board'?blue:'transparent', pipeBoardFg: s.pipeView==='board'?'#fff':'#6B7688',
+      // accounts/detail
+      accounts, crossSell, timeline,
+      // tasks
+      taskGroups, hasSel: selCount>0, selCount,
+      // admin
+      brands, users, roles, services, picklist, auditTabs, audit,
+    };
+  }
+}
+</script>
+</body>
+</html>
